@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import Login from "./pages/Login.tsx";
 import Admin from "./pages/Admin.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import ProtectedRoute from "./components/ProtectedRoute.tsx";
 
 const queryClient = new QueryClient();
 
@@ -17,7 +18,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Login />} />
-            <Route path="/admin" element={<Admin />} />
+            <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
