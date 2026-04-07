@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Client } from "@/types";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -24,101 +24,133 @@ export const WhatsAppTab: React.FC<Props> = ({ client }) => {
   const [qrBase64, setQrBase64] = useState<string | null>(null);
   const [phone, setPhone] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const statusRef = useRef<Status>("loading");
+
+  const setStatusSynced = (s: Status) => {
+    statusRef.current = s;
+    setStatus(s);
+  };
 
   const stopPolling = () => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
   };
 
-  const checkStatus = async () => {
+  const checkStatus = useCallback(async () => {
     try {
       const res = await evoFetch(`/instance/connectionState/${instanceName}`);
-      if (!res.ok) { setStatus("disconnected"); return; }
+      if (!res.ok) { setStatusSynced("disconnected"); stopPolling(); return; }
       const data = await res.json();
-      const state = data?.instance?.state ?? data?.state;
+      const state = data?.instance?.state ?? data?.state ?? "";
+
       if (state === "open") {
-        setStatus("connected");
+        setStatusSynced("connected");
         setQrBase64(null);
         stopPolling();
-        // fetch phone info
-        const infoRes = await evoFetch(`/instance/fetchInstances?instanceName=${instanceName}`);
-        if (infoRes.ok) {
-          const info = await infoRes.json();
-          const inst = Array.isArray(info) ? info[0] : info;
-          setPhone(inst?.instance?.owner ?? inst?.owner ?? null);
-        }
-      } else if (state === "connecting" || state === "qr") {
-        setStatus("connecting");
-      } else {
-        setStatus("disconnected");
+        // fetch phone number
+        try {
+          const infoRes = await evoFetch(`/instance/fetchInstances?instanceName=${instanceName}`);
+          if (infoRes.ok) {
+            const info = await infoRes.json();
+            const inst = Array.isArray(info) ? info[0] : info;
+            setPhone(inst?.instance?.owner ?? inst?.owner ?? null);
+          }
+        } catch { /* ignore */ }
+      } else if (state === "close" || state === "disconnected") {
+        setStatusSynced("disconnected");
+        stopPolling();
       }
+      // else: still connecting, keep polling
     } catch {
-      setStatus("disconnected");
+      // network error, keep polling
     }
-  };
+  }, [instanceName]);
 
   const fetchQr = async () => {
-    const res = await evoFetch(`/instance/connect/${instanceName}`);
-    if (!res.ok) return;
-    const data = await res.json();
-    const base64 = data?.base64 ?? data?.qrcode?.base64;
-    if (base64) setQrBase64(base64);
+    try {
+      const res = await evoFetch(`/instance/connect/${instanceName}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const base64 = data?.base64 ?? data?.qrcode?.base64;
+      if (base64) setQrBase64(base64);
+    } catch { /* ignore */ }
   };
 
-  // On mount: check if instance exists and its status
+  const startPolling = useCallback(() => {
+    stopPolling();
+    pollRef.current = setInterval(() => {
+      checkStatus();
+    }, 5000);
+  }, [checkStatus]);
+
+  // On mount: check if instance already exists
   useEffect(() => {
     const init = async () => {
-      setStatus("loading");
-      await checkStatus();
+      setStatusSynced("loading");
+      try {
+        const res = await evoFetch(`/instance/connectionState/${instanceName}`);
+        if (!res.ok) { setStatusSynced("disconnected"); return; }
+        const data = await res.json();
+        const state = data?.instance?.state ?? data?.state ?? "";
+        if (state === "open") {
+          setStatusSynced("connected");
+          try {
+            const infoRes = await evoFetch(`/instance/fetchInstances?instanceName=${instanceName}`);
+            if (infoRes.ok) {
+              const info = await infoRes.json();
+              const inst = Array.isArray(info) ? info[0] : info;
+              setPhone(inst?.instance?.owner ?? inst?.owner ?? null);
+            }
+          } catch { /* ignore */ }
+        } else if (state === "connecting" || state === "qr") {
+          setStatusSynced("connecting");
+          await fetchQr();
+          startPolling();
+        } else {
+          setStatusSynced("disconnected");
+        }
+      } catch {
+        setStatusSynced("disconnected");
+      }
     };
     init();
     return () => stopPolling();
   }, [instanceName]);
 
   const handleCriar = async () => {
-    setStatus("loading");
+    setStatusSynced("loading");
     try {
       const res = await evoFetch("/instance/create", {
         method: "POST",
-        body: JSON.stringify({
-          instanceName,
-          qrcode: true,
-          integration: "WHATSAPP-BAILEYS",
-        }),
+        body: JSON.stringify({ instanceName, qrcode: true, integration: "WHATSAPP-BAILEYS" }),
       });
       const data = await res.json();
       if (!res.ok) {
-        // Instance may already exist
-        if (data?.message?.includes("already") || data?.error?.includes("already")) {
-          toast.info("Instância já existe, buscando QR Code...");
-        } else {
-          toast.error("Erro ao criar instância: " + (data?.message ?? res.statusText));
-          setStatus("disconnected");
+        const msg = data?.message ?? data?.error ?? "";
+        if (!msg.toLowerCase().includes("already")) {
+          toast.error("Erro ao criar instância: " + msg);
+          setStatusSynced("disconnected");
           return;
         }
       } else {
         toast.success("Instância criada!");
       }
-      setStatus("connecting");
+      setStatusSynced("connecting");
       await fetchQr();
-      pollRef.current = setInterval(async () => {
-        await checkStatus();
-        if (status !== "connecting") stopPolling();
-        else await fetchQr();
-      }, 8000);
+      startPolling();
     } catch (e) {
       toast.error("Erro ao conectar à Evolution API");
-      setStatus("disconnected");
+      setStatusSynced("disconnected");
     }
   };
 
-  const handleConectar = async () => {
-    setStatus("connecting");
+  const handleNovoQr = async () => {
+    setQrBase64(null);
     await fetchQr();
-    stopPolling();
-    pollRef.current = setInterval(async () => {
-      await checkStatus();
-      await fetchQr();
-    }, 8000);
+  };
+
+  const handleVerificar = async () => {
+    await checkStatus();
+    if (statusRef.current !== "connected") toast.info("Ainda não conectado, aguarde...");
   };
 
   const handleDesconectar = async () => {
@@ -126,7 +158,7 @@ export const WhatsAppTab: React.FC<Props> = ({ client }) => {
     await evoFetch(`/instance/logout/${instanceName}`, { method: "DELETE" });
     setQrBase64(null);
     setPhone(null);
-    setStatus("disconnected");
+    setStatusSynced("disconnected");
     toast.info("WhatsApp desconectado");
   };
 
@@ -136,15 +168,15 @@ export const WhatsAppTab: React.FC<Props> = ({ client }) => {
     await evoFetch(`/instance/delete/${instanceName}`, { method: "DELETE" });
     setQrBase64(null);
     setPhone(null);
-    setStatus("disconnected");
+    setStatusSynced("disconnected");
     toast.success("Instância deletada");
   };
 
-  const statusConfig = {
-    loading:       { label: "Verificando...", className: "text-muted-foreground bg-secondary" },
-    disconnected:  { label: "Desconectado",  className: "text-status-paused bg-status-paused-bg" },
-    connecting:    { label: "Aguardando QR", className: "text-status-configuring bg-status-configuring-bg" },
-    connected:     { label: "Conectado",     className: "text-status-active bg-status-active-bg" },
+  const statusConfig: Record<Status, { label: string; className: string }> = {
+    loading:      { label: "Verificando...", className: "text-muted-foreground bg-secondary" },
+    disconnected: { label: "Desconectado",  className: "text-status-paused bg-status-paused-bg" },
+    connecting:   { label: "Aguardando QR", className: "text-status-configuring bg-status-configuring-bg" },
+    connected:    { label: "Conectado",     className: "text-status-active bg-status-active-bg" },
   };
 
   return (
@@ -177,16 +209,19 @@ export const WhatsAppTab: React.FC<Props> = ({ client }) => {
         {/* Actions */}
         <div className="flex flex-wrap gap-3 mb-6">
           {status === "disconnected" && (
-            <>
-              <Button onClick={handleCriar} className="font-body gap-2">
-                <Wifi className="h-4 w-4" /> Criar e Conectar
-              </Button>
-            </>
+            <Button onClick={handleCriar} className="font-body gap-2">
+              <Wifi className="h-4 w-4" /> Criar e Conectar
+            </Button>
           )}
           {status === "connecting" && (
-            <Button variant="outline" onClick={handleConectar} className="font-body gap-2 border-primary/40 text-primary">
-              <RefreshCw className="h-4 w-4" /> Novo QR Code
-            </Button>
+            <>
+              <Button variant="outline" onClick={handleNovoQr} className="font-body gap-2 border-primary/40 text-primary">
+                <RefreshCw className="h-4 w-4" /> Novo QR Code
+              </Button>
+              <Button variant="outline" onClick={handleVerificar} className="font-body gap-2 border-primary/40 text-primary">
+                <Wifi className="h-4 w-4" /> Verificar conexão
+              </Button>
+            </>
           )}
           {status === "connected" && (
             <Button variant="outline" onClick={handleDesconectar} className="font-body gap-2 border-destructive/40 text-destructive">
