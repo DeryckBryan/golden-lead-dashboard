@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Plus, X, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { CurrencyInput } from "@/components/ui/currency-input";
 
 interface Props { client: Client }
 
@@ -152,11 +153,11 @@ export const ICPTab: React.FC<Props> = ({ client }) => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-sm text-muted-foreground font-body mb-1.5 block">Faturamento mín. (R$/mês)</label>
-              <Input type="number" value={fatMin} onChange={e => setFatMin(e.target.value)} placeholder="Ex: 50000" className="bg-secondary border-input" />
+              <CurrencyInput value={fatMin} onChange={setFatMin} placeholder="Ex: 50000" className="bg-secondary border-input" />
             </div>
             <div>
               <label className="text-sm text-muted-foreground font-body mb-1.5 block">Faturamento máx. (R$/mês)</label>
-              <Input type="number" value={fatMax} onChange={e => setFatMax(e.target.value)} placeholder="Ex: 500000" className="bg-secondary border-input" />
+              <CurrencyInput value={fatMax} onChange={setFatMax} placeholder="Ex: 500000" className="bg-secondary border-input" />
             </div>
           </div>
 

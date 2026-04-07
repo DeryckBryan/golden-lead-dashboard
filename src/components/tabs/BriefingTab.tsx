@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Copy, Plus, X, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { CurrencyInput } from "@/components/ui/currency-input";
 
 interface Props { client: Client }
 
@@ -167,7 +168,7 @@ export const BriefingTab: React.FC<Props> = ({ client }) => {
         <div className="grid grid-cols-1 gap-5">
           <FormField label="Descrição da empresa"><Textarea value={descricao} onChange={e => setDescricao(e.target.value)} className="bg-secondary border-input min-h-[80px]" /></FormField>
           <FormField label="Produto/Serviço principal"><Textarea value={produto} onChange={e => setProduto(e.target.value)} className="bg-secondary border-input min-h-[80px]" /></FormField>
-          <FormField label="Ticket médio (R$)"><Input type="number" value={ticket} onChange={e => setTicket(e.target.value)} className="bg-secondary border-input" /></FormField>
+          <FormField label="Ticket médio (R$)"><CurrencyInput value={ticket} onChange={setTicket} placeholder="Ex: 15000" className="bg-secondary border-input" /></FormField>
           <FormField label="Diferencial competitivo"><Textarea value={diferencial} onChange={e => setDiferencial(e.target.value)} className="bg-secondary border-input" /></FormField>
           <FormField label="Público-alvo declarado"><Textarea value={publico} onChange={e => setPublico(e.target.value)} className="bg-secondary border-input" /></FormField>
           <FormField label="Regiões de atuação"><TagInput tags={regioes} setTags={setRegioes} input={regInput} setInput={setRegInput} placeholder="Ex: São Paulo" /></FormField>

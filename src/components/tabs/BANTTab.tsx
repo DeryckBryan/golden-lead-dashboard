@@ -7,6 +7,7 @@ import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import { Plus, X, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { CurrencyInput } from "@/components/ui/currency-input";
 
 interface Props { client: Client }
 
@@ -86,7 +87,7 @@ export const BANTTab: React.FC<Props> = ({ client }) => {
         <div className="grid grid-cols-1 gap-5">
           <div>
             <label className="text-sm text-muted-foreground font-body mb-1.5 block">Budget mínimo (R$)</label>
-            <Input type="number" value={budgetMin} onChange={e => setBudgetMin(e.target.value)} className="bg-secondary border-input" />
+            <CurrencyInput value={budgetMin} onChange={setBudgetMin} placeholder="Ex: 5000" className="bg-secondary border-input" />
           </div>
           <div>
             <label className="text-sm text-muted-foreground font-body mb-1.5 block">Pergunta personalizada para budget</label>
