@@ -22,8 +22,10 @@ serve(async (req) => {
       headers: { ...cors, "Content-Type": "application/json" },
     });
   } catch (e) {
+    // Sempre retorna 200 — supabase.functions.invoke() trata não-2xx como exceção
+    // e não deixa ler o body. O erro vai no JSON para o frontend tratar.
     return new Response(JSON.stringify({ error: String(e) }), {
-      status: 400,
+      status: 200,
       headers: { ...cors, "Content-Type": "application/json" },
     });
   }
