@@ -117,15 +117,25 @@ export const AcoesTab: React.FC<Props> = ({ client }) => {
 
   const connected = connectStatus === "connected";
 
-  const invokeProxy = (body: object) =>
-    supabase.functions.invoke("crm-proxy", { body });
+  const invokeProxy = async (body: object) => {
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/crm-proxy`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify(body),
+    });
+    return res.json();
+  };
 
   const carregarStages = async (pid: string, crmType = crm, token = accessToken, sub = subdomain) => {
     if (!pid) return;
     setStagesLoading(true);
     try {
-      const { data, error } = await invokeProxy({ crm: crmType, token, action: "getStages", pipelineId: pid, subdomain: sub });
-      if (error || data?.error) throw new Error(error?.message ?? data?.error);
+      const data = await invokeProxy({ crm: crmType, token, action: "getStages", pipelineId: pid, subdomain: sub });
+      if (data?.error) throw new Error(data.error);
       setStages(data.stages ?? []);
     } catch (e: any) {
       toast.error("Erro ao buscar etapas: " + e.message);
@@ -141,8 +151,8 @@ export const AcoesTab: React.FC<Props> = ({ client }) => {
     setPipelines([]);
     setStages([]);
     try {
-      const { data, error } = await invokeProxy({ crm, token: accessToken, action: "getPipelines", subdomain });
-      if (error || data?.error) throw new Error(error?.message ?? data?.error);
+      const data = await invokeProxy({ crm, token: accessToken, action: "getPipelines", subdomain });
+      if (data?.error) throw new Error(data.error);
       const list: CrmOption[] = data.pipelines ?? [];
       setPipelines(list);
       setConnectStatus("connected");
@@ -191,16 +201,12 @@ export const AcoesTab: React.FC<Props> = ({ client }) => {
         // Auto-connect silently se já tem token salvo
         if (data.crm && data.crm !== "nenhum" && data.crm_access_token) {
           try {
-            const { data: pd } = await supabase.functions.invoke("crm-proxy", {
-              body: { crm: data.crm, token: data.crm_access_token, action: "getPipelines", subdomain: data.crm_subdomain ?? "" },
-            });
+            const pd = await invokeProxy({ crm: data.crm, token: data.crm_access_token, action: "getPipelines", subdomain: data.crm_subdomain ?? "" });
             if (pd?.pipelines) {
               setPipelines(pd.pipelines);
               setConnectStatus("connected");
               if (data.crm_pipeline_id) {
-                const { data: sd } = await supabase.functions.invoke("crm-proxy", {
-                  body: { crm: data.crm, token: data.crm_access_token, action: "getStages", pipelineId: data.crm_pipeline_id, subdomain: data.crm_subdomain ?? "" },
-                });
+                const sd = await invokeProxy({ crm: data.crm, token: data.crm_access_token, action: "getStages", pipelineId: data.crm_pipeline_id, subdomain: data.crm_subdomain ?? "" });
                 if (sd?.stages) setStages(sd.stages);
               }
             }
