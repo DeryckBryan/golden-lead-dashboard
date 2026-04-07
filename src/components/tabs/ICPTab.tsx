@@ -85,13 +85,13 @@ export const ICPTab: React.FC<Props> = ({ client }) => {
       if (data) {
         setIcpId(data.id);
         setSegmentos(data.segmentos ?? []);
-        setFatMin(data.faturamento_min?.toString() ?? "");
-        setFatMax(data.faturamento_max?.toString() ?? "");
+        setFatMin(data.faturamento_minimo?.toString() ?? "");
+        setFatMax(data.faturamento_maximo?.toString() ?? "");
         setFuncMin(data.funcionarios_min?.toString() ?? "");
         setFuncMax(data.funcionarios_max?.toString() ?? "");
         setCargos(data.cargos_alvo ?? []);
         setRegioes(data.regioes ?? []);
-        setDores(data.dores ?? []);
+        setDores(data.dores_que_resolve ?? []);
         setExclusao(data.criterios_exclusao ?? []);
       }
       setLoading(false);
@@ -104,13 +104,13 @@ export const ICPTab: React.FC<Props> = ({ client }) => {
     const payload = {
       client_id: client.id,
       segmentos,
-      faturamento_min: fatMin ? Number(fatMin) : null,
-      faturamento_max: fatMax ? Number(fatMax) : null,
+      faturamento_minimo: fatMin ? Number(fatMin) : null,
+      faturamento_maximo: fatMax ? Number(fatMax) : null,
       funcionarios_min: funcMin ? Number(funcMin) : null,
       funcionarios_max: funcMax ? Number(funcMax) : null,
       cargos_alvo: cargos,
       regioes,
-      dores,
+      dores_que_resolve: dores,
       criterios_exclusao: exclusao,
     };
 
