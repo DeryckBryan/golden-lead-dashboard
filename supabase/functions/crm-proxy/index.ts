@@ -32,24 +32,23 @@ serve(async (req) => {
 });
 
 // ── RD Station CRM ────────────────────────────────────────────────────────────
-// RD Station CRM não separa pipelines — usa deal_stages diretamente.
-// Retornamos um "pipeline" fictício para manter o fluxo de UI consistente.
-async function rdStation(token: string, action: string, _pipelineId?: string) {
+// Endpoint correto: /deal_pipelines — retorna funis com etapas embutidas
+async function rdStation(token: string, action: string, pipelineId?: string) {
   const base = "https://crm.rdstation.com/api/v1";
   const h = { Accept: "application/json" };
 
-  // Valida token buscando deal_stages (endpoint correto do RD Station CRM)
-  const r = await fetch(`${base}/deal_stages?token=${token}`, { headers: h });
+  const r = await fetch(`${base}/deal_pipelines?token=${token}`, { headers: h });
   if (!r.ok) throw new Error(`RD Station ${r.status}: token inválido ou sem permissão`);
-  const d = await r.json();
-  const allStages: any[] = d.deal_stages ?? [];
+  const pipelines: any[] = await r.json();
 
   if (action === "getPipelines") {
-    // Retorna um pipeline único representando o funil padrão
-    return { pipelines: [{ id: "default", name: "Funil de Vendas" }] };
+    return { pipelines: pipelines.map((p: any) => ({ id: p.id, name: p.name })) };
   }
   if (action === "getStages") {
-    return { stages: allStages.map((s: any) => ({ id: s._id, name: s.name })) };
+    const pipeline = pipelines.find((p: any) => p.id === pipelineId);
+    if (!pipeline) throw new Error(`Pipeline ${pipelineId} não encontrado`);
+    const stages = (pipeline.deal_stages ?? []).map((s: any) => ({ id: s._id, name: s.name }));
+    return { stages };
   }
 }
 
