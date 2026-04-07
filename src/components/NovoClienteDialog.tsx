@@ -23,6 +23,13 @@ function generateToken() {
   return Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10);
 }
 
+function formatWhatsapp(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  return digits
+    .replace(/^(\d{2})(\d)/, "($1) $2")
+    .replace(/(\d{5})(\d)/, "$1-$2");
+}
+
 function formatCnpj(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 14);
   return digits
@@ -172,7 +179,7 @@ const NovoClienteDialog: React.FC<Props> = ({ open, onClose, onCreated }) => {
 
           <div>
             <Label className="font-body text-sm">WhatsApp</Label>
-            <Input value={whatsapp} onChange={e => setWhatsapp(e.target.value)} className="mt-1.5" placeholder="11999999999" />
+            <Input value={whatsapp} onChange={e => setWhatsapp(formatWhatsapp(e.target.value))} className="mt-1.5" placeholder="(11) 99999-9999" />
           </div>
         </div>
 
