@@ -4,10 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plug, CheckCircle2, XCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 interface Props { client: Client }
+
+type ConnectStatus = "idle" | "connecting" | "connected" | "error";
+interface CrmOption { id: string; name: string }
 
 const crmMappings = [
   { resultado: "lead_qualificado", label: "Lead Qualificado" },
@@ -42,10 +45,51 @@ const ToggleRow: React.FC<{ label: string; checked: boolean; onChange: (v: boole
   </div>
 );
 
+const StageSelect: React.FC<{
+  stages: CrmOption[];
+  stagesLoading: boolean;
+  connected: boolean;
+  value: string;
+  onChange: (v: string) => void;
+}> = ({ stages, stagesLoading, connected, value, onChange }) => {
+  if (!connected) {
+    return (
+      <Input
+        placeholder="Conecte ao CRM primeiro"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="bg-secondary border-input flex-1 text-muted-foreground"
+        disabled
+      />
+    );
+  }
+  if (stagesLoading) {
+    return (
+      <div className="flex-1 h-10 flex items-center px-3 rounded-lg bg-secondary border border-input">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground mr-2" />
+        <span className="text-sm text-muted-foreground">Carregando etapas...</span>
+      </div>
+    );
+  }
+  return (
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      className="flex-1 h-10 px-3 rounded-lg bg-secondary border border-input text-foreground font-body text-sm"
+    >
+      <option value="">— Selecionar etapa —</option>
+      {stages.map(s => (
+        <option key={s.id} value={s.id}>{s.name}</option>
+      ))}
+    </select>
+  );
+};
+
 export const AcoesTab: React.FC<Props> = ({ client }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // Notificações
   const [notifWhatsapp, setNotifWhatsapp] = useState(true);
   const [whatsappNum, setWhatsappNum] = useState("");
   const [notifEmail, setNotifEmail] = useState(true);
@@ -57,11 +101,65 @@ export const AcoesTab: React.FC<Props> = ({ client }) => {
   const [confirmLead, setConfirmLead] = useState(true);
   const [notifEncerrada, setNotifEncerrada] = useState(true);
   const [coldEmail, setColdEmail] = useState(false);
+
+  // CRM
   const [crm, setCrm] = useState("nenhum");
   const [accessToken, setAccessToken] = useState("");
   const [subdomain, setSubdomain] = useState("");
   const [pipelineId, setPipelineId] = useState("");
   const [crmMap, setCrmMap] = useState<Record<string, string>>({});
+
+  // CRM dinâmico
+  const [connectStatus, setConnectStatus] = useState<ConnectStatus>("idle");
+  const [pipelines, setPipelines] = useState<CrmOption[]>([]);
+  const [stages, setStages] = useState<CrmOption[]>([]);
+  const [stagesLoading, setStagesLoading] = useState(false);
+
+  const connected = connectStatus === "connected";
+
+  const invokeProxy = (body: object) =>
+    supabase.functions.invoke("crm-proxy", { body });
+
+  const carregarStages = async (pid: string, crmType = crm, token = accessToken, sub = subdomain) => {
+    if (!pid) return;
+    setStagesLoading(true);
+    try {
+      const { data, error } = await invokeProxy({ crm: crmType, token, action: "getStages", pipelineId: pid, subdomain: sub });
+      if (error || data?.error) throw new Error(error?.message ?? data?.error);
+      setStages(data.stages ?? []);
+    } catch (e: any) {
+      toast.error("Erro ao buscar etapas: " + e.message);
+    } finally {
+      setStagesLoading(false);
+    }
+  };
+
+  const conectar = async () => {
+    if (!accessToken.trim()) { toast.error("Insira o Access Token primeiro"); return; }
+    if (crm === "kommo" && !subdomain.trim()) { toast.error("Insira o Subdomain do Kommo"); return; }
+    setConnectStatus("connecting");
+    setPipelines([]);
+    setStages([]);
+    try {
+      const { data, error } = await invokeProxy({ crm, token: accessToken, action: "getPipelines", subdomain });
+      if (error || data?.error) throw new Error(error?.message ?? data?.error);
+      const list: CrmOption[] = data.pipelines ?? [];
+      setPipelines(list);
+      setConnectStatus("connected");
+      toast.success(`Conectado ao CRM — ${list.length} pipeline(s) encontrado(s)`);
+      if (pipelineId) await carregarStages(pipelineId);
+    } catch (e: any) {
+      setConnectStatus("error");
+      toast.error("Erro ao conectar: " + e.message);
+    }
+  };
+
+  const handlePipelineChange = async (pid: string) => {
+    setPipelineId(pid);
+    setCrmMap({});
+    setStages([]);
+    if (pid) await carregarStages(pid);
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -89,11 +187,39 @@ export const AcoesTab: React.FC<Props> = ({ client }) => {
         setSubdomain(data.crm_subdomain ?? "");
         setPipelineId(data.crm_pipeline_id ?? "");
         setCrmMap(data.crm_mapeamento ?? {});
+
+        // Auto-connect silently se já tem token salvo
+        if (data.crm && data.crm !== "nenhum" && data.crm_access_token) {
+          try {
+            const { data: pd } = await supabase.functions.invoke("crm-proxy", {
+              body: { crm: data.crm, token: data.crm_access_token, action: "getPipelines", subdomain: data.crm_subdomain ?? "" },
+            });
+            if (pd?.pipelines) {
+              setPipelines(pd.pipelines);
+              setConnectStatus("connected");
+              if (data.crm_pipeline_id) {
+                const { data: sd } = await supabase.functions.invoke("crm-proxy", {
+                  body: { crm: data.crm, token: data.crm_access_token, action: "getStages", pipelineId: data.crm_pipeline_id, subdomain: data.crm_subdomain ?? "" },
+                });
+                if (sd?.stages) setStages(sd.stages);
+              }
+            }
+          } catch { /* silencioso */ }
+        }
       }
       setLoading(false);
     };
     load();
   }, [client.id]);
+
+  // Reset quando troca de CRM
+  useEffect(() => {
+    setConnectStatus("idle");
+    setPipelines([]);
+    setStages([]);
+    setPipelineId("");
+    setCrmMap({});
+  }, [crm]);
 
   const salvar = async () => {
     setSaving(true);
@@ -118,7 +244,6 @@ export const AcoesTab: React.FC<Props> = ({ client }) => {
     };
 
     const { error } = await supabase.from("client_actions").upsert(payload, { onConflict: "client_id" });
-
     if (error) toast.error("Erro ao salvar: " + error.message);
     else toast.success("Ações salvas!");
     setSaving(false);
@@ -165,12 +290,19 @@ export const AcoesTab: React.FC<Props> = ({ client }) => {
         <ToggleRow label="Mover para cold email" checked={coldEmail} onChange={setColdEmail} />
       </Section>
 
+      {/* ── CRM ─────────────────────────────────────────────────────────── */}
       <div className="bg-card rounded-lg p-6 shadow-card border border-border">
         <h4 className="font-heading text-base font-semibold text-foreground mb-4">Integração CRM</h4>
         <div className="space-y-4">
+
+          {/* Seletor de CRM */}
           <div>
             <label className="text-sm text-muted-foreground font-body mb-1 block">CRM</label>
-            <select value={crm} onChange={e => setCrm(e.target.value)} className="w-full h-10 px-3 rounded-lg bg-secondary border border-input text-foreground font-body text-sm">
+            <select
+              value={crm}
+              onChange={e => setCrm(e.target.value)}
+              className="w-full h-10 px-3 rounded-lg bg-secondary border border-input text-foreground font-body text-sm"
+            >
               <option value="nenhum">Nenhum</option>
               <option value="rdstation">RD Station</option>
               <option value="kommo">Kommo</option>
@@ -178,39 +310,99 @@ export const AcoesTab: React.FC<Props> = ({ client }) => {
               <option value="hubspot">HubSpot</option>
             </select>
           </div>
+
           {crm !== "nenhum" && (
             <>
+              {/* Access Token + botão Conectar */}
               <div>
                 <label className="text-sm text-muted-foreground font-body mb-1 block">Access Token</label>
-                <Input value={accessToken} onChange={e => setAccessToken(e.target.value)} type="password" className="bg-secondary border-input" />
+                <div className="flex gap-2">
+                  <Input
+                    value={accessToken}
+                    onChange={e => { setAccessToken(e.target.value); setConnectStatus("idle"); }}
+                    type="password"
+                    className="bg-secondary border-input flex-1"
+                    placeholder="Cole seu token aqui"
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={conectar}
+                    disabled={connectStatus === "connecting"}
+                    className="shrink-0 gap-1.5"
+                  >
+                    {connectStatus === "connecting" ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" />Conectando...</>
+                    ) : connectStatus === "connected" ? (
+                      <><CheckCircle2 className="h-4 w-4 text-green-500" />Reconectar</>
+                    ) : connectStatus === "error" ? (
+                      <><XCircle className="h-4 w-4 text-red-500" />Tentar novamente</>
+                    ) : (
+                      <><Plug className="h-4 w-4" />Conectar</>
+                    )}
+                  </Button>
+                </div>
+                {connectStatus === "connected" && (
+                  <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" /> Conectado · {pipelines.length} pipeline(s) disponível(is)
+                  </p>
+                )}
+                {connectStatus === "error" && (
+                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <XCircle className="h-3 w-3" /> Falha na conexão — verifique o token
+                  </p>
+                )}
               </div>
+
+              {/* Subdomain (Kommo) */}
               {crm === "kommo" && (
                 <div>
                   <label className="text-sm text-muted-foreground font-body mb-1 block">Subdomain</label>
-                  <Input value={subdomain} onChange={e => setSubdomain(e.target.value)} className="bg-secondary border-input" />
+                  <Input value={subdomain} onChange={e => setSubdomain(e.target.value)} placeholder="seudominio" className="bg-secondary border-input" />
                 </div>
               )}
+
+              {/* Pipeline — dropdown dinâmico */}
               <div>
-                <label className="text-sm text-muted-foreground font-body mb-1 block">Pipeline ID</label>
-                <Input value={pipelineId} onChange={e => setPipelineId(e.target.value)} className="bg-secondary border-input" />
+                <label className="text-sm text-muted-foreground font-body mb-1 block">Pipeline</label>
+                {!connected ? (
+                  <div className="h-10 px-3 flex items-center rounded-lg bg-secondary border border-input text-muted-foreground text-sm">
+                    Conecte ao CRM para ver os pipelines
+                  </div>
+                ) : (
+                  <select
+                    value={pipelineId}
+                    onChange={e => handlePipelineChange(e.target.value)}
+                    className="w-full h-10 px-3 rounded-lg bg-secondary border border-input text-foreground font-body text-sm"
+                  >
+                    <option value="">— Selecionar pipeline —</option>
+                    {pipelines.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                )}
               </div>
-              <div>
-                <label className="text-sm text-muted-foreground font-body mb-1 block">Mapeamento de Resultados</label>
-                <div className="space-y-2">
-                  {crmMappings.map(m => (
-                    <div key={m.resultado} className="flex items-center gap-3">
-                      <span className="w-40 text-sm text-foreground font-body shrink-0">{m.label}</span>
-                      <span className="text-muted-foreground">→</span>
-                      <Input
-                        placeholder="Etapa no CRM"
-                        value={crmMap[m.resultado] ?? ""}
-                        onChange={e => setCrmMap({ ...crmMap, [m.resultado]: e.target.value })}
-                        className="bg-secondary border-input flex-1"
-                      />
-                    </div>
-                  ))}
+
+              {/* Mapeamento de Resultados — dropdowns dinâmicos */}
+              {connected && pipelineId && (
+                <div>
+                  <label className="text-sm text-muted-foreground font-body mb-2 block">Mapeamento de Resultados</label>
+                  <div className="space-y-2">
+                    {crmMappings.map(m => (
+                      <div key={m.resultado} className="flex items-center gap-3">
+                        <span className="w-44 text-sm text-foreground font-body shrink-0">{m.label}</span>
+                        <span className="text-muted-foreground">→</span>
+                        <StageSelect
+                          stages={stages}
+                          stagesLoading={stagesLoading}
+                          connected={connected}
+                          value={crmMap[m.resultado] ?? ""}
+                          onChange={v => setCrmMap({ ...crmMap, [m.resultado]: v })}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </>
           )}
         </div>
