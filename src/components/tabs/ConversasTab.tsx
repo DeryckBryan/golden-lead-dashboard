@@ -3,8 +3,17 @@ import { Client, Lead, Message } from "@/types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Send, Bot, User, Loader2 } from "lucide-react";
+import { Send, Bot, User, Loader2, PauseCircle, PlayCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+
+const EVO_URL = import.meta.env.VITE_EVOLUTION_URL as string;
+const EVO_KEY = import.meta.env.VITE_EVOLUTION_KEY as string;
+
+const evoFetch = (path: string, options: RequestInit = {}) =>
+  fetch(`${EVO_URL}${path}`, {
+    ...options,
+    headers: { apikey: EVO_KEY, "Content-Type": "application/json", ...options.headers },
+  });
 
 interface Props { client: Client }
 
@@ -57,22 +66,56 @@ export const ConversasTab: React.FC<Props> = ({ client }) => {
 
   const selectedLead = leads.find(l => l.id === selectedLeadId);
 
+  const instanceName = client.nome_fantasia.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+
   const enviar = async () => {
     if (!newMessage.trim() || !selectedLeadId) return;
+    const telefone = selectedLead?.telefone?.replace(/\D/g, "");
+    if (!telefone) {
+      toast.error("Lead sem telefone cadastrado. Adicione o número na aba Leads.");
+      return;
+    }
     setSending(true);
-    const payload = {
+
+    // Envia via Evolution API
+    try {
+      const res = await evoFetch(`/message/sendText/${instanceName}`, {
+        method: "POST",
+        body: JSON.stringify({
+          number: telefone,
+          text: newMessage.trim(),
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error("Erro ao enviar WhatsApp: " + (err?.message ?? res.status));
+        setSending(false);
+        return;
+      }
+    } catch {
+      toast.error("Erro ao conectar à Evolution API");
+      setSending(false);
+      return;
+    }
+
+    // Salva no Supabase
+    const { data, error } = await supabase.from("messages").insert({
       lead_id: selectedLeadId,
       client_id: client.id,
       content: newMessage.trim(),
       sender: "sdr",
       is_ai: false,
-    };
-    const { data, error } = await supabase.from("messages").insert(payload).select().single();
+    }).select().single();
+
     if (error) {
-      toast.error("Erro ao enviar: " + error.message);
+      toast.error("Mensagem enviada mas erro ao salvar: " + error.message);
     } else {
       setMessages(prev => [...prev, data]);
       setNewMessage("");
+      // Pausa a cadência automática
+      await supabase.from("leads").update({ cadencia_pausada: true }).eq("id", selectedLeadId);
+      setLeads(prev => prev.map(l => l.id === selectedLeadId ? { ...l, cadencia_pausada: true } : l));
+      toast.success("Mensagem enviada. Cadência pausada automaticamente.");
     }
     setSending(false);
   };
@@ -112,10 +155,28 @@ export const ConversasTab: React.FC<Props> = ({ client }) => {
                 {selectedLead?.nome?.charAt(0).toUpperCase() ?? "?"}
               </span>
             </div>
-            <div>
+            <div className="flex-1">
               <p className="text-white font-semibold text-sm font-body">{selectedLead?.nome}</p>
               <p className="text-[#8696a0] text-xs font-body">{selectedLead?.empresa} · {selectedLead?.cargo}</p>
             </div>
+            {selectedLead?.cadencia_pausada ? (
+              <button
+                onClick={async () => {
+                  await supabase.from("leads").update({ cadencia_pausada: false }).eq("id", selectedLeadId);
+                  setLeads(prev => prev.map(l => l.id === selectedLeadId ? { ...l, cadencia_pausada: false } : l));
+                  toast.success("Cadência retomada");
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-body transition-colors"
+                style={{ backgroundColor: "#2a3942", color: "#f59e0b" }}
+                title="Cadência pausada — clique para retomar"
+              >
+                <PauseCircle className="h-3.5 w-3.5" /> Cadência pausada · Retomar
+              </button>
+            ) : (
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-body" style={{ backgroundColor: "#2a3942", color: "#00a884" }}>
+                <PlayCircle className="h-3.5 w-3.5" /> Cadência ativa
+              </div>
+            )}
           </div>
 
           {/* Área de mensagens */}

@@ -32,6 +32,8 @@ export interface Lead {
   justificativa_icp?: string;
   bant_breakdown?: { budget: number; authority: number; need: number; timeline: number };
   link_crm?: string;
+  telefone?: string;
+  cadencia_pausada?: boolean;
 }
 
 export interface Message {
