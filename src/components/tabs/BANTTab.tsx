@@ -1,15 +1,20 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Client } from "@/types";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 interface Props { client: Client }
 
 export const BANTTab: React.FC<Props> = ({ client }) => {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [bantId, setBantId] = useState<string | null>(null);
+
   const [budgetMin, setBudgetMin] = useState("5000");
   const [budgetQuestion, setBudgetQuestion] = useState("Qual o orçamento disponível para essa solução?");
   const [cargos, setCargos] = useState<string[]>(["CEO", "Diretor", "Gerente"]);
@@ -20,6 +25,59 @@ export const BANTTab: React.FC<Props> = ({ client }) => {
   const [scoreMin, setScoreMin] = useState([70]);
 
   const weights = { budget: 30, authority: 25, need: 25, timeline: 20 };
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from("bant_config")
+        .select("*")
+        .eq("client_id", client.id)
+        .maybeSingle();
+
+      if (data) {
+        setBantId(data.id);
+        setBudgetMin(data.budget_minimo?.toString() ?? "5000");
+        setBudgetQuestion(data.budget_pergunta ?? "Qual o orçamento disponível para essa solução?");
+        setCargos(data.authority_cargos ?? ["CEO", "Diretor", "Gerente"]);
+        setPerguntas(data.need_perguntas ?? ["Qual o principal desafio atual?", "O que motivou a busca por solução?"]);
+        setPrazo(data.timeline_max_dias?.toString() ?? "30");
+        setScoreMin([data.score_minimo_aprovacao ?? 70]);
+      }
+      setLoading(false);
+    };
+    load();
+  }, [client.id]);
+
+  const salvar = async () => {
+    setSaving(true);
+    const payload = {
+      client_id: client.id,
+      budget_minimo: budgetMin ? Number(budgetMin) : null,
+      budget_pergunta: budgetQuestion,
+      authority_cargos: cargos,
+      need_perguntas: perguntas,
+      timeline_max_dias: prazo ? Number(prazo) : null,
+      score_minimo_aprovacao: scoreMin[0],
+    };
+
+    const { error } = await supabase.from("bant_config").upsert(payload, { onConflict: "client_id" });
+
+    if (error) {
+      toast.error("Erro ao salvar: " + error.message);
+    } else {
+      toast.success("BANT salvo!");
+    }
+    setSaving(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-12">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -39,14 +97,14 @@ export const BANTTab: React.FC<Props> = ({ client }) => {
             <div className="flex flex-wrap gap-2 mb-2">
               {cargos.map((t, i) => (
                 <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 bg-accent text-accent-foreground rounded-md text-xs font-body border border-primary/30">
-                  {t}<button onClick={() => setCargos(cargos.filter((_, j) => j !== i))}><X className="h-3 w-3" /></button>
+                  {t}<button type="button" onClick={() => setCargos(cargos.filter((_, j) => j !== i))}><X className="h-3 w-3" /></button>
                 </span>
               ))}
             </div>
             <div className="flex gap-2">
               <Input value={cargoInput} onChange={e => setCargoInput(e.target.value)} placeholder="Adicionar cargo..." className="bg-secondary border-input flex-1"
-                onKeyDown={e => { if (e.key === "Enter" && cargoInput.trim()) { e.preventDefault(); setCargos([...cargos, cargoInput.trim()]); setCargoInput(""); }}} />
-              <Button variant="outline" size="sm" onClick={() => { if (cargoInput.trim()) { setCargos([...cargos, cargoInput.trim()]); setCargoInput(""); }}} className="border-primary/40 text-primary"><Plus className="h-4 w-4" /></Button>
+                onKeyDown={e => { if (e.key === "Enter" && cargoInput.trim()) { e.preventDefault(); setCargos([...cargos, cargoInput.trim()]); setCargoInput(""); } }} />
+              <Button type="button" variant="outline" size="sm" onClick={() => { if (cargoInput.trim()) { setCargos([...cargos, cargoInput.trim()]); setCargoInput(""); } }} className="border-primary/40 text-primary"><Plus className="h-4 w-4" /></Button>
             </div>
           </div>
           <div>
@@ -55,14 +113,14 @@ export const BANTTab: React.FC<Props> = ({ client }) => {
               {perguntas.map((p, i) => (
                 <div key={i} className="flex items-center gap-2 p-2 bg-secondary rounded-md">
                   <span className="flex-1 text-sm text-foreground font-body">{p}</span>
-                  <button onClick={() => setPerguntas(perguntas.filter((_, j) => j !== i))}><X className="h-4 w-4 text-muted-foreground" /></button>
+                  <button type="button" onClick={() => setPerguntas(perguntas.filter((_, j) => j !== i))}><X className="h-4 w-4 text-muted-foreground" /></button>
                 </div>
               ))}
             </div>
             <div className="flex gap-2">
               <Input value={pergInput} onChange={e => setPergInput(e.target.value)} placeholder="Adicionar pergunta..." className="bg-secondary border-input flex-1"
-                onKeyDown={e => { if (e.key === "Enter" && pergInput.trim()) { e.preventDefault(); setPerguntas([...perguntas, pergInput.trim()]); setPergInput(""); }}} />
-              <Button variant="outline" size="sm" onClick={() => { if (pergInput.trim()) { setPerguntas([...perguntas, pergInput.trim()]); setPergInput(""); }}} className="border-primary/40 text-primary"><Plus className="h-4 w-4" /></Button>
+                onKeyDown={e => { if (e.key === "Enter" && pergInput.trim()) { e.preventDefault(); setPerguntas([...perguntas, pergInput.trim()]); setPergInput(""); } }} />
+              <Button type="button" variant="outline" size="sm" onClick={() => { if (pergInput.trim()) { setPerguntas([...perguntas, pergInput.trim()]); setPergInput(""); } }} className="border-primary/40 text-primary"><Plus className="h-4 w-4" /></Button>
             </div>
           </div>
           <div>
@@ -88,7 +146,9 @@ export const BANTTab: React.FC<Props> = ({ client }) => {
         </div>
       </div>
 
-      <Button onClick={() => toast.success("BANT salvo!")} className="font-body">Salvar BANT</Button>
+      <Button onClick={salvar} disabled={saving} className="font-body">
+        {saving ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Salvando...</> : "Salvar BANT"}
+      </Button>
     </div>
   );
 };
