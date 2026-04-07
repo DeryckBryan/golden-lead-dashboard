@@ -11,6 +11,26 @@ import { supabase } from "@/lib/supabase";
 
 interface Props { client: Client }
 
+type DelayUnit = "minutes" | "hours" | "days";
+
+const toHours = (value: number, unit: DelayUnit) => {
+  if (unit === "minutes") return value / 60;
+  if (unit === "days") return value * 24;
+  return value;
+};
+
+const fromHours = (hours: number): { value: number; unit: DelayUnit } => {
+  if (hours < 1) return { value: Math.round(hours * 60), unit: "minutes" };
+  if (hours >= 24 && hours % 24 === 0) return { value: hours / 24, unit: "days" };
+  return { value: hours, unit: "hours" };
+};
+
+const delayLabel = (hours: number) => {
+  const { value, unit } = fromHours(hours);
+  const labels: Record<DelayUnit, string> = { minutes: "min", hours: "h", days: "d" };
+  return `${value}${labels[unit]} delay`;
+};
+
 const triggerLabels: Record<string, string> = {
   inicio: "Início",
   sem_resposta: "Sem Resposta",
@@ -36,6 +56,8 @@ export const CadenciaTab: React.FC<Props> = ({ client }) => {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [editStep, setEditStep] = useState<CadenceStep | null>(null);
+  const [delayValue, setDelayValue] = useState(24);
+  const [delayUnit, setDelayUnit] = useState<DelayUnit>("hours");
   const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -55,11 +77,16 @@ export const CadenciaTab: React.FC<Props> = ({ client }) => {
 
   const openNew = () => {
     setEditStep(newStep(client.id, steps.length + 1));
+    setDelayValue(24);
+    setDelayUnit("hours");
     setDialogOpen(true);
   };
 
   const openEdit = (step: CadenceStep) => {
     setEditStep({ ...step });
+    const { value, unit } = fromHours(step.delay_hours);
+    setDelayValue(value);
+    setDelayUnit(unit);
     setDialogOpen(true);
   };
 
@@ -73,7 +100,7 @@ export const CadenciaTab: React.FC<Props> = ({ client }) => {
       step_number: editStep.step_number,
       trigger: editStep.trigger,
       channel: editStep.channel,
-      delay_hours: editStep.delay_hours,
+      delay_hours: toHours(delayValue, delayUnit),
       use_ai: editStep.use_ai,
       template: editStep.template,
     };
@@ -143,7 +170,7 @@ export const CadenciaTab: React.FC<Props> = ({ client }) => {
                   <span className="text-sm font-bold text-primary font-body">Step {step.step_number}</span>
                   <span className="px-2 py-0.5 bg-secondary text-muted-foreground rounded text-xs font-body">{triggerLabels[step.trigger]}</span>
                   <span className="px-2 py-0.5 bg-secondary text-muted-foreground rounded text-xs font-body capitalize">{step.channel}</span>
-                  <span className="text-xs text-muted-foreground font-body">{step.delay_hours}h delay</span>
+                  <span className="text-xs text-muted-foreground font-body">{delayLabel(step.delay_hours)}</span>
                 </div>
                 <p className="text-sm text-foreground/80 font-body truncate">{step.template || <span className="italic text-muted-foreground">Sem template</span>}</p>
               </div>
@@ -211,14 +238,25 @@ export const CadenciaTab: React.FC<Props> = ({ client }) => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-muted-foreground font-body mb-1 block">Delay (horas)</label>
-                  <Input
-                    type="number"
-                    value={editStep.delay_hours}
-                    onChange={e => setEditStep({ ...editStep, delay_hours: Number(e.target.value) })}
-                    className="bg-secondary border-input"
-                    min={0}
-                  />
+                  <label className="text-sm text-muted-foreground font-body mb-1 block">Delay</label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      value={delayValue}
+                      onChange={e => setDelayValue(Number(e.target.value))}
+                      className="bg-secondary border-input"
+                      min={0}
+                    />
+                    <select
+                      value={delayUnit}
+                      onChange={e => setDelayUnit(e.target.value as DelayUnit)}
+                      className="h-10 px-3 rounded-lg bg-secondary border border-input text-foreground font-body text-sm"
+                    >
+                      <option value="minutes">minutos</option>
+                      <option value="hours">horas</option>
+                      <option value="days">dias</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -242,7 +280,7 @@ export const CadenciaTab: React.FC<Props> = ({ client }) => {
                     ? "Ex: Aborde o lead mencionando o segmento de saúde. Use tom consultivo. Variáveis: {nome} {empresa} {cargo}"
                     : "Ex: Olá {nome}, passando para retomar nosso contato sobre a {empresa}..."}
                 />
-                <p className="text-xs text-muted-foreground font-body mt-1">Variáveis: {"{nome}"} {"{empresa}"} {"{cargo}"} {"{dor}"}</p>
+                <p className="text-xs text-muted-foreground font-body mt-1">Variáveis: {"{saudacao}"} {"{nome}"} {"{empresa}"} {"{cargo}"} {"{dor}"}</p>
               </div>
 
               <Button onClick={saveStep} disabled={saving} className="w-full font-body">
