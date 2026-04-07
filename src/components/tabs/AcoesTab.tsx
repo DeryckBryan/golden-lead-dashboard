@@ -17,6 +17,14 @@ const crmMappings = [
   { resultado: "perdido", label: "Perdido" },
 ];
 
+const maskPhone = (raw: string) => {
+  const d = raw.replace(/\D/g, "").slice(0, 13);
+  if (d.length <= 2) return d;
+  if (d.length <= 4) return `${d.slice(0, 2)} (${d.slice(2)}`;
+  if (d.length <= 9) return `${d.slice(0, 2)} (${d.slice(2, 4)}) ${d.slice(4)}`;
+  return `${d.slice(0, 2)} (${d.slice(2, 4)}) ${d.slice(4, 9)}-${d.slice(9)}`;
+};
+
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
   <div className="bg-card rounded-lg p-6 shadow-card border border-border">
     <h4 className="font-heading text-base font-semibold text-foreground mb-4">{title}</h4>
@@ -128,7 +136,13 @@ export const AcoesTab: React.FC<Props> = ({ client }) => {
     <div className="space-y-6 animate-fade-in">
       <Section title="Quando lead QUALIFICADO">
         <ToggleRow label="Notificar no WhatsApp" checked={notifWhatsapp} onChange={setNotifWhatsapp}>
-          <Input value={whatsappNum} onChange={e => setWhatsappNum(e.target.value)} placeholder="Número WhatsApp (ex: 5511999999999)" className="bg-secondary border-input" />
+          <Input
+            value={maskPhone(whatsappNum)}
+            onChange={e => setWhatsappNum(e.target.value.replace(/\D/g, "").slice(0, 13))}
+            placeholder="55 (11) 99999-9999"
+            inputMode="numeric"
+            className="bg-secondary border-input"
+          />
         </ToggleRow>
         <ToggleRow label="Enviar resumo por email" checked={notifEmail} onChange={setNotifEmail}>
           <Input value={emailDest} onChange={e => setEmailDest(e.target.value)} placeholder="email@exemplo.com" className="bg-secondary border-input" />
