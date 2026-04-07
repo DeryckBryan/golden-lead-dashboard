@@ -91,22 +91,22 @@ const Briefing: React.FC = () => {
         .maybeSingle();
 
       if (briefing) {
-        setDescricao(briefing.descricao ?? "");
-        setProduto(briefing.produto ?? "");
-        setTicket(briefing.ticket?.toString() ?? "");
+        setDescricao(briefing.descricao_empresa ?? "");
+        setProduto(briefing.produto_servico ?? "");
+        setTicket(briefing.ticket_medio?.toString() ?? "");
         setDiferencial(briefing.diferencial ?? "");
         setPublico(briefing.publico_alvo ?? "");
-        setRegioes(briefing.regioes ?? []);
-        setDores(briefing.dores ?? []);
+        setRegioes(briefing.regioes_atuacao ?? []);
+        setDores(briefing.principais_dores ?? []);
         setTemVendas(briefing.tem_time_vendas ?? false);
         setCiclo(briefing.ciclo_venda_dias?.toString() ?? "");
         setCanais(briefing.canais_atuais ?? []);
-        setObjecoes(briefing.objecoes ?? []);
+        setObjecoes(briefing.principais_objecoes ?? []);
         setTom(briefing.tom_comunicacao ?? "consultivo");
-        setEvitar(briefing.evitar ?? "");
+        setEvitar(briefing.evitar_mencionar ?? "");
         setMeta(briefing.meta_reunioes_mes?.toString() ?? "");
-        setMaterial(briefing.link_material ?? "");
-        setObs(briefing.observacoes ?? "");
+        setMaterial(briefing.link_material_apoio ?? "");
+        setObs(briefing.observacoes_livres ?? "");
       }
 
       setLoading(false);
@@ -124,22 +124,22 @@ const Briefing: React.FC = () => {
 
     const payload = {
       client_id: clientId,
-      descricao,
-      produto,
-      ticket: ticket ? Number(ticket) : null,
+      descricao_empresa: descricao,
+      produto_servico: produto,
+      ticket_medio: ticket ? Number(ticket) : null,
       diferencial,
       publico_alvo: publico,
-      regioes,
-      dores,
+      regioes_atuacao: regioes,
+      principais_dores: dores,
       tem_time_vendas: temVendas,
       ciclo_venda_dias: ciclo ? Number(ciclo) : null,
       canais_atuais: canais,
-      objecoes,
+      principais_objecoes: objecoes,
       tom_comunicacao: tom,
-      evitar,
+      evitar_mencionar: evitar,
       meta_reunioes_mes: meta ? Number(meta) : null,
-      link_material: material || null,
-      observacoes: obs,
+      link_material_apoio: material || null,
+      observacoes_livres: obs,
     };
 
     const { error } = await supabase.from("client_briefing").upsert(payload, { onConflict: "client_id" });
