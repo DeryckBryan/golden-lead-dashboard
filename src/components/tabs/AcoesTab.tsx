@@ -12,13 +12,15 @@ interface Props { client: Client }
 type ConnectStatus = "idle" | "connecting" | "connected" | "error";
 interface CrmOption { id: string; name: string }
 
+// Cada entrada = um momento em que o n8n move o lead no CRM
 const crmMappings = [
-  { resultado: "sem_resposta", label: "Sem Resposta" },
-  { resultado: "em_conversa", label: "Em Conversa" },
-  { resultado: "lead_qualificado", label: "Lead Qualificado" },
-  { resultado: "nao_qualificado_ia", label: "Não Qualificado pela IA" },
+  { resultado: "tentativa_1", label: "1ª Tentativa de Contato" },
+  { resultado: "tentativa_2", label: "2ª Tentativa de Contato" },
+  { resultado: "tentativa_3", label: "3ª Tentativa de Contato" },
+  { resultado: "em_conversa", label: "Em Conversa (respondeu)" },
   { resultado: "reuniao_agendada", label: "Reunião Agendada" },
-  { resultado: "perdido", label: "Perdido" },
+  { resultado: "nao_qualificado_ia", label: "Não Qualificado pela IA" },
+  { resultado: "sem_resposta_perda", label: "Sem Resposta → Perda" },
 ];
 
 const maskPhone = (raw: string) => {
