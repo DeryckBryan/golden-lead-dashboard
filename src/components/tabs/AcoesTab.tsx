@@ -13,10 +13,11 @@ type ConnectStatus = "idle" | "connecting" | "connected" | "error";
 interface CrmOption { id: string; name: string }
 
 const crmMappings = [
-  { resultado: "lead_qualificado", label: "Lead Qualificado" },
-  { resultado: "lead_desqualificado", label: "Lead Desqualificado" },
-  { resultado: "reuniao_agendada", label: "Reunião Agendada" },
   { resultado: "sem_resposta", label: "Sem Resposta" },
+  { resultado: "em_conversa", label: "Em Conversa" },
+  { resultado: "lead_qualificado", label: "Lead Qualificado" },
+  { resultado: "nao_qualificado_ia", label: "Não Qualificado pela IA" },
+  { resultado: "reuniao_agendada", label: "Reunião Agendada" },
   { resultado: "perdido", label: "Perdido" },
 ];
 
