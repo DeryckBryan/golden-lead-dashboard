@@ -1,0 +1,305 @@
+{
+  "name": "SDR - 03 Resposta WhatsApp + Qualificação",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sdr-whatsapp",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "n-webhook",
+      "name": "Webhook - Resposta WhatsApp",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "sdr-whatsapp-response"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Evolution API envia o evento. Filtrar apenas mensagens recebidas de leads.\nconst body = $input.item.json.body || $input.item.json;\n\n// Ignorar mensagens enviadas pelo próprio bot\nconst fromMe = body?.data?.key?.fromMe || body?.key?.fromMe || false;\nif (fromMe) return [];\n\n// Ignorar atualizações de status (não são mensagens)\nconst event = body?.event || '';\nif (event !== 'messages.upsert') return [];\n\n// Extrair telefone e texto\nconst remoteJid = body?.data?.key?.remoteJid || body?.key?.remoteJid || '';\nconst telefone  = remoteJid.replace('@s.whatsapp.net', '').replace(/\\D/g, '');\nconst texto     = body?.data?.message?.conversation\n               || body?.data?.message?.extendedTextMessage?.text\n               || body?.message?.conversation\n               || '';\n\nif (!telefone || !texto) return [];\n\nreturn [{ json: { telefone, texto, event_raw: body } }];"
+      },
+      "id": "n-filter",
+      "name": "Filtrar Mensagem Válida",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/sdr_leads?telefone=eq.' + $json.telefone + '&estado=not.in.(descartado,nao_qualificado,reuniao_agendada)&select=*&order=created_at.desc&limit=1' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "={{ $env.SUPABASE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n-get-lead",
+      "name": "Buscar Lead por Telefone",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-lead-found",
+              "leftValue":  "={{ Array.isArray($json) && $json.length > 0 }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "n-if-lead",
+      "name": "Lead encontrado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const leads   = $('Buscar Lead por Telefone').item.json;\nconst lead    = Array.isArray(leads) ? leads[0] : leads;\nconst texto   = $('Filtrar Mensagem Válida').item.json.texto;\n\n// Adicionar mensagem ao histórico\nconst historico = lead.historico_conversa || [];\nhistorico.push({ role: 'user', content: texto, ts: new Date().toISOString() });\n\nconst eraEmTentativa = ['tentativa_1','tentativa_2','tentativa_3'].includes(lead.estado);\n\nreturn [{\n  json: {\n    lead,\n    texto,\n    historico,\n    eraEmTentativa,\n    historico_json: JSON.stringify(historico)\n  }\n}];"
+      },
+      "id": "n-prep-lead",
+      "name": "Preparar Lead e Histórico",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 220]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/client_actions?client_id=eq.' + $json.lead.client_id + '&select=crm,crm_access_token,crm_pipeline_id,crm_mapeamento,notif_whatsapp,notif_whatsapp_numero' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "={{ $env.SUPABASE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n-get-config",
+      "name": "Buscar Config Cliente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 220]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/clients?id=eq.' + $('Preparar Lead e Histórico').item.json.lead.client_id + '&select=nome_fantasia,razao_social' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "={{ $env.SUPABASE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n-get-client",
+      "name": "Buscar Dados Cliente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 220]
+    },
+    {
+      "parameters": {
+        "jsCode": "const prepData  = $('Preparar Lead e Histórico').item.json;\nconst lead      = prepData.lead;\nconst configs   = $('Buscar Config Cliente').item.json;\nconst clients   = $('Buscar Dados Cliente').item.json;\n\nconst config     = Array.isArray(configs) ? configs[0] : configs;\nconst clientRec  = Array.isArray(clients) ? clients[0] : clients;\nconst mapeamento = config?.crm_mapeamento || {};\nconst nomeFantasia = (clientRec?.nome_fantasia || '').toLowerCase().replace(/\\s+/g, '-').replace(/[^a-z0-9-]/g, '');\n\n// Montar prompt BANT para Claude\n// Prioridade: Budget (capacidade de investir) e Authority (quem decide)\nconst historico = prepData.historico;\nconst systemPrompt = `Você é um SDR de IA da ${clientRec?.razao_social || 'empresa'}. Analise a conversa e faça qualificação BANT com foco em Budget e Authority primeiro.\n\nResposta OBRIGATÓRIA em JSON:\n{\n  \"acao\": \"qualificado\" | \"nao_qualificado\" | \"continuar\" | \"agendar\",\n  \"resposta\": \"mensagem para enviar ao lead (em português, natural)\",\n  \"bant_budget\": \"o que descobrimos sobre budget\",\n  \"bant_authority\": \"o que descobrimos sobre quem decide\",\n  \"bant_need\": \"qual a necessidade\",\n  \"bant_timeline\": \"prazo\",\n  \"motivo_perda\": \"motivo se nao_qualificado, senão null\"\n}\n\nRegras:\n- \"qualificado\": lead tem budget, é o decisor (ou influenciador), tem necessidade real\n- \"nao_qualificado\": claramente sem budget, sem autoridade, sem fit\n- \"agendar\": lead qualificado e PEDIU ou ACEITOU reunião — tente propor horário\n- \"continuar\": ainda qualificando, precisa de mais informações\n- Seja natural, humano, não robótico. Máximo 3 linhas por mensagem.\n- Se o lead demonstrar interesse em reunião, use acao=\"agendar\"`;\n\nconst messages = historico.map(h => ({\n  role: h.role,\n  content: h.content\n}));\n\nconst claudePayload = JSON.stringify({\n  model: 'claude-sonnet-4-6',\n  max_tokens: 1024,\n  system: systemPrompt,\n  messages\n});\n\nreturn [{\n  json: {\n    lead,\n    config,\n    mapeamento,\n    instance_name:    nomeFantasia,\n    historico:        prepData.historico,\n    eraEmTentativa:   prepData.eraEmTentativa,\n    claude_payload:   claudePayload,\n    historico_json:   prepData.historico_json\n  }\n}];"
+      },
+      "id": "n-montar-claude",
+      "name": "Montar Prompt BANT",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key",         "value": "={{ $env.ANTHROPIC_KEY }}" },
+            { "name": "anthropic-version",  "value": "2023-06-01" },
+            { "name": "Content-Type",       "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.claude_payload }}",
+        "options": {}
+      },
+      "id": "n-claude",
+      "name": "Claude - Qualificação BANT",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 220]
+    },
+    {
+      "parameters": {
+        "jsCode": "const claudeResp    = $input.item.json;\nconst montar        = $('Montar Prompt BANT').item.json;\n\n// Extrair texto da resposta do Claude\nconst rawText = claudeResp?.content?.[0]?.text || '{}';\n\nlet bant;\ntry {\n  // Claude pode envolver o JSON em ```json ... ```\n  const clean = rawText.replace(/```json\\n?/g, '').replace(/```/g, '').trim();\n  bant = JSON.parse(clean);\n} catch(e) {\n  bant = { acao: 'continuar', resposta: 'Pode me contar um pouco mais sobre sua situação?' };\n}\n\n// Adicionar resposta do SDR ao histórico\nconst historico = montar.historico || [];\nhistorico.push({ role: 'assistant', content: bant.resposta, ts: new Date().toISOString() });\n\n// Montar update do Supabase\nconst update = {\n  historico_conversa: historico,\n  ultima_acao_at:     new Date().toISOString(),\n  // Parar cadência automaticamente quando respondeu\n  proxima_acao:       null,\n  proxima_acao_at:    null\n};\n\nif (bant.bant_budget)    update.bant_budget    = bant.bant_budget;\nif (bant.bant_authority) update.bant_authority = bant.bant_authority;\nif (bant.bant_need)      update.bant_need      = bant.bant_need;\nif (bant.bant_timeline)  update.bant_timeline  = bant.bant_timeline;\n\nif      (bant.acao === 'qualificado' || bant.acao === 'agendar') update.estado = 'qualificado';\nelse if (bant.acao === 'nao_qualificado')                         update.estado = 'nao_qualificado';\nelse                                                              update.estado = 'em_conversa';\n\nif (bant.motivo_perda)   update.motivo_perda  = bant.motivo_perda;\nif (bant.acao === 'qualificado' || bant.acao === 'agendar') update.qualificado = true;\nif (bant.acao === 'nao_qualificado') update.qualificado = false;\n\nconst stageMap = {\n  em_conversa:     montar.mapeamento.em_conversa,\n  qualificado:     montar.mapeamento.em_conversa,    // permanece em conversa até reunião ser confirmada\n  nao_qualificado: montar.mapeamento.nao_qualificado_ia,\n  agendar:         montar.mapeamento.reuniao_agendada\n};\n\nreturn [{\n  json: {\n    lead:          montar.lead,\n    config:        montar.config,\n    mapeamento:    montar.mapeamento,\n    instance_name: montar.instance_name,\n    eraEmTentativa: montar.eraEmTentativa,\n    bant,\n    resposta:      bant.resposta,\n    acao:          bant.acao,\n    stageId:       stageMap[bant.acao === 'agendar' ? 'agendar' : update.estado] || null,\n    supabase_update: JSON.stringify(update)\n  }\n}];"
+      },
+      "id": "n-parse-bant",
+      "name": "Processar Resposta BANT",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2220, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.EVOLUTION_URL + '/message/sendText/' + $json.instance_name }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",       "value": "={{ $env.EVOLUTION_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ number: $json.lead.telefone, text: $json.resposta }) }}",
+        "options": {}
+      },
+      "id": "n-send-resp",
+      "name": "Enviar Resposta ao Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2440, 120]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ 'https://crm.rdstation.com/api/v1/deals/' + $('Processar Resposta BANT').item.json.lead.crm_deal_id + '?token=' + $('Processar Resposta BANT').item.json.config.crm_access_token }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Accept",       "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ deal: { deal_stage_id: $('Processar Resposta BANT').item.json.stageId } }) }}",
+        "options": {}
+      },
+      "id": "n-rd-move",
+      "name": "Mover Stage RD Station",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2440, 300]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/sdr_leads?id=eq.' + $('Processar Resposta BANT').item.json.lead.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "={{ $env.SUPABASE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_KEY }}" },
+            { "name": "Content-Type",  "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $('Processar Resposta BANT').item.json.supabase_update }}",
+        "options": {}
+      },
+      "id": "n-update-lead",
+      "name": "Atualizar Lead Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2660, 220]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true }",
+        "options": {}
+      },
+      "id": "n-respond",
+      "name": "Responder OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2880, 220]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true, \"ignored\": true }",
+        "options": {}
+      },
+      "id": "n-respond-ignore",
+      "name": "Ignorar Mensagem",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1120, 420]
+    }
+  ],
+  "connections": {
+    "Webhook - Resposta WhatsApp": {
+      "main": [[{ "node": "Filtrar Mensagem Válida", "type": "main", "index": 0 }]]
+    },
+    "Filtrar Mensagem Válida": {
+      "main": [[{ "node": "Buscar Lead por Telefone", "type": "main", "index": 0 }]]
+    },
+    "Buscar Lead por Telefone": {
+      "main": [[{ "node": "Lead encontrado?", "type": "main", "index": 0 }]]
+    },
+    "Lead encontrado?": {
+      "main": [
+        [{ "node": "Preparar Lead e Histórico", "type": "main", "index": 0 }],
+        [{ "node": "Ignorar Mensagem",           "type": "main", "index": 0 }]
+      ]
+    },
+    "Preparar Lead e Histórico": {
+      "main": [[{ "node": "Buscar Config Cliente", "type": "main", "index": 0 }]]
+    },
+    "Buscar Config Cliente": {
+      "main": [[{ "node": "Buscar Dados Cliente", "type": "main", "index": 0 }]]
+    },
+    "Buscar Dados Cliente": {
+      "main": [[{ "node": "Montar Prompt BANT", "type": "main", "index": 0 }]]
+    },
+    "Montar Prompt BANT": {
+      "main": [[{ "node": "Claude - Qualificação BANT", "type": "main", "index": 0 }]]
+    },
+    "Claude - Qualificação BANT": {
+      "main": [[{ "node": "Processar Resposta BANT", "type": "main", "index": 0 }]]
+    },
+    "Processar Resposta BANT": {
+      "main": [
+        [
+          { "node": "Enviar Resposta ao Lead",  "type": "main", "index": 0 },
+          { "node": "Mover Stage RD Station",   "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Enviar Resposta ao Lead": {
+      "main": [[{ "node": "Atualizar Lead Supabase", "type": "main", "index": 0 }]]
+    },
+    "Mover Stage RD Station": {
+      "main": [[{ "node": "Atualizar Lead Supabase", "type": "main", "index": 0 }]]
+    },
+    "Atualizar Lead Supabase": {
+      "main": [[{ "node": "Responder OK", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" }
+}

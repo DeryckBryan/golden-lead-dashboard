@@ -1,0 +1,205 @@
+{
+  "name": "SDR - 01 Entrada de Lead",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sdr-lead",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "n-webhook",
+      "name": "Webhook - Lead Novo",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "sdr-lead-entry"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.item.json.body || $input.item.json;\nconst hora = new Date().getHours();\nconst saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';\nconst nomeCompleto = (body.nome || '').trim();\nconst primeiroNome = nomeCompleto.split(' ')[0];\n\nif (!body.client_id) throw new Error('client_id obrigatório');\nif (!body.telefone)  throw new Error('telefone obrigatório');\n\nreturn [{\n  json: {\n    client_id:     body.client_id,\n    nome:          nomeCompleto,\n    primeiro_nome: primeiroNome,\n    telefone:      (body.telefone || '').replace(/\\D/g, ''),\n    email:         body.email  || '',\n    origem:        body.origem || 'desconhecido',\n    saudacao\n  }\n}];"
+      },
+      "id": "n-prep",
+      "name": "Preparar Dados",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/client_actions?client_id=eq.' + $json.client_id + '&select=crm,crm_access_token,crm_subdomain,crm_pipeline_id,crm_mapeamento' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",         "value": "={{ $env.SUPABASE_KEY }}" },
+            { "name": "Authorization",  "value": "=Bearer {{ $env.SUPABASE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n-get-config",
+      "name": "Buscar Config CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/clients?id=eq.' + $('Preparar Dados').item.json.client_id + '&select=nome_fantasia' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",         "value": "={{ $env.SUPABASE_KEY }}" },
+            { "name": "Authorization",  "value": "=Bearer {{ $env.SUPABASE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n-get-client",
+      "name": "Buscar Nome Cliente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const lead    = $('Preparar Dados').item.json;\nconst configs = $('Buscar Config CRM').item.json;\nconst clients = $('Buscar Nome Cliente').item.json;\n\nconst config   = Array.isArray(configs) ? configs[0] : configs;\nconst clientRec = Array.isArray(clients) ? clients[0] : clients;\n\nif (!config) throw new Error('Configuração CRM não encontrada para este cliente');\n\nconst mapeamento  = config.crm_mapeamento || {};\nconst nomeFantasia = (clientRec?.nome_fantasia || '').toLowerCase().replace(/\\s+/g, '-').replace(/[^a-z0-9-]/g, '');\n\nconst msg1 = `${lead.saudacao} ${lead.primeiro_nome}, tudo bem?`;\n\nconst proxima_acao_at = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // +5 min\n\nreturn [{\n  json: {\n    lead,\n    config,\n    mapeamento,\n    instance_name: nomeFantasia,\n    msg1,\n    stage_id_tentativa1: mapeamento.tentativa_1 || '',\n    rd_payload: JSON.stringify({\n      deal: {\n        name: `Lead ${lead.nome}`,\n        deal_pipeline_id: config.crm_pipeline_id,\n        deal_stage_id: mapeamento.tentativa_1\n      }\n    }),\n    supabase_payload: JSON.stringify({\n      client_id:       lead.client_id,\n      nome:            lead.nome,\n      telefone:        lead.telefone,\n      email:           lead.email,\n      origem:          lead.origem,\n      estado:          'tentativa_1',\n      proxima_acao:    'follow_up_5min',\n      proxima_acao_at\n    })\n  }\n}];"
+      },
+      "id": "n-montar",
+      "name": "Montar Payloads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.EVOLUTION_URL + '/message/sendText/' + $json.instance_name }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",         "value": "={{ $env.EVOLUTION_KEY }}" },
+            { "name": "Content-Type",   "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ number: $json.lead.telefone, text: $json.msg1 }) }}",
+        "options": {}
+      },
+      "id": "n-send-msg1",
+      "name": "Enviar Msg 1 WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://crm.rdstation.com/api/v1/deals?token=' + $('Montar Payloads').item.json.config.crm_access_token }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type",   "value": "application/json" },
+            { "name": "Accept",         "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $('Montar Payloads').item.json.rd_payload }}",
+        "options": {}
+      },
+      "id": "n-rd-create",
+      "name": "Criar Deal RD Station",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const montar   = $('Montar Payloads').item.json;\nconst rdResp   = $('Criar Deal RD Station').item.json;\nconst dealId   = rdResp?._id || rdResp?.id || null;\n\nconst payload  = JSON.parse(montar.supabase_payload);\npayload.crm_deal_id = dealId;\n\nreturn [{ json: { payload: JSON.stringify(payload) } }];"
+      },
+      "id": "n-enrich",
+      "name": "Adicionar Deal ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/sdr_leads' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",         "value": "={{ $env.SUPABASE_KEY }}" },
+            { "name": "Authorization",  "value": "=Bearer {{ $env.SUPABASE_KEY }}" },
+            { "name": "Content-Type",   "value": "application/json" },
+            { "name": "Prefer",         "value": "return=representation" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.payload }}",
+        "options": {}
+      },
+      "id": "n-insert-lead",
+      "name": "Inserir Lead Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true }",
+        "options": {}
+      },
+      "id": "n-respond",
+      "name": "Responder OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2000, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - Lead Novo": {
+      "main": [[{ "node": "Preparar Dados",    "type": "main", "index": 0 }]]
+    },
+    "Preparar Dados": {
+      "main": [[{ "node": "Buscar Config CRM", "type": "main", "index": 0 }]]
+    },
+    "Buscar Config CRM": {
+      "main": [[{ "node": "Buscar Nome Cliente", "type": "main", "index": 0 }]]
+    },
+    "Buscar Nome Cliente": {
+      "main": [[{ "node": "Montar Payloads",   "type": "main", "index": 0 }]]
+    },
+    "Montar Payloads": {
+      "main": [
+        [
+          { "node": "Enviar Msg 1 WhatsApp",  "type": "main", "index": 0 },
+          { "node": "Criar Deal RD Station",  "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Criar Deal RD Station": {
+      "main": [[{ "node": "Adicionar Deal ID",  "type": "main", "index": 0 }]]
+    },
+    "Adicionar Deal ID": {
+      "main": [[{ "node": "Inserir Lead Supabase", "type": "main", "index": 0 }]]
+    },
+    "Inserir Lead Supabase": {
+      "main": [[{ "node": "Responder OK",      "type": "main", "index": 0 }]]
+    },
+    "Enviar Msg 1 WhatsApp": {
+      "main": [[{ "node": "Responder OK",      "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" }
+}

@@ -1,0 +1,256 @@
+{
+  "name": "SDR - 02 Cadência Automática",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "minutes", "minutesInterval": 5 }]
+        }
+      },
+      "id": "n-cron",
+      "name": "A cada 5 minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/sdr_leads?proxima_acao_at=lte.' + new Date().toISOString() + '&estado=not.in.(descartado,nao_qualificado,reuniao_agendada,em_conversa)&select=*' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "={{ $env.SUPABASE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n-get-leads",
+      "name": "Buscar Leads Pendentes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-has-leads",
+              "leftValue":  "={{ Array.isArray($json) ? $json.length : 0 }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "n-if-leads",
+      "name": "Tem leads?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": { "batchSize": 1, "options": {} },
+      "id": "n-split",
+      "name": "Processar um por vez",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [900, 220]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/client_actions?client_id=eq.' + $json.client_id + '&select=crm,crm_access_token,crm_pipeline_id,crm_mapeamento' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "={{ $env.SUPABASE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n-get-config",
+      "name": "Buscar Config do Cliente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 220]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/clients?id=eq.' + $('Processar um por vez').item.json.client_id + '&select=nome_fantasia' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "={{ $env.SUPABASE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n-get-client",
+      "name": "Buscar Instance Name",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 220]
+    },
+    {
+      "parameters": {
+        "jsCode": "const lead    = $('Processar um por vez').item.json;\nconst configs = $('Buscar Config do Cliente').item.json;\nconst clients = $('Buscar Instance Name').item.json;\n\nconst config    = Array.isArray(configs) ? configs[0] : configs;\nconst clientRec = Array.isArray(clients) ? clients[0] : clients;\nconst mapeamento = config?.crm_mapeamento || {};\n\nconst nomeFantasia = (clientRec?.nome_fantasia || '').toLowerCase().replace(/\\s+/g, '-').replace(/[^a-z0-9-]/g, '');\nconst hora = new Date().getHours();\nconst saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';\nconst primeiroNome = (lead.nome || '').split(' ')[0];\n\n// Mensagens por ação\nconst mensagens = {\n  follow_up_5min:  `Meu nome é Pedro, acabei de receber seu cadastro em nossa campanha.\\nO que chamou sua atenção ${primeiroNome}, para seguir e fazer o cadastro?`,\n  tentativa_2:     `${saudacao} ${primeiroNome}`,\n  follow_up_4h:    `${primeiroNome}`,\n  tentativa_3:     `${primeiroNome} tem interesse ainda de continuar o bate papo?`,\n  descarte:        `${saudacao} ${primeiroNome}, tudo bem? Nós recebemos seu cadastro, tentamos contato por alguns dias e não tivemos sucesso. Estou cancelando seu cadastro em nosso sistema. Agradeço a atenção. Caso queira falar um pouco mais sobre COMO GERAR DEMANDA, COMO VENDER MAIS E MELHOR, estamos aqui para te atender.\\n\\n${saudacao}`\n};\n\n// Próxima ação após esta\nconst proximaAcaoMap = {\n  follow_up_5min:  { acao: 'tentativa_2',  minutos: 24 * 60,  estado: null },\n  tentativa_2:     { acao: 'follow_up_4h', minutos: 4  * 60,  estado: 'tentativa_2' },\n  follow_up_4h:    { acao: 'tentativa_3',  minutos: 24 * 60,  estado: null },\n  tentativa_3:     { acao: 'descarte',     minutos: 24 * 60,  estado: 'tentativa_3' },\n  descarte:        { acao: null,           minutos: 0,        estado: 'descartado' }\n};\n\nconst acaoAtual = lead.proxima_acao;\nconst msg       = mensagens[acaoAtual] || '';\nconst prox      = proximaAcaoMap[acaoAtual] || { acao: null, minutos: 0, estado: 'descartado' };\n\n// Stage CRM da ação atual (apenas tentativas e descarte mudam)\nconst crmStageMap = {\n  tentativa_2:  mapeamento.tentativa_2,\n  tentativa_3:  mapeamento.tentativa_3,\n  descarte:     mapeamento.sem_resposta_perda\n};\nconst stageId = crmStageMap[acaoAtual] || null;\n\nconst supabaseUpdate = {\n  ultima_acao_at:  new Date().toISOString(),\n  proxima_acao:    prox.acao,\n  proxima_acao_at: prox.acao ? new Date(Date.now() + prox.minutos * 60 * 1000).toISOString() : null\n};\nif (prox.estado) supabaseUpdate.estado = prox.estado;\n\nreturn [{\n  json: {\n    lead,\n    config,\n    instance_name:   nomeFantasia,\n    msg,\n    stageId,\n    moverCrm:        !!stageId,\n    descarteFinal:   acaoAtual === 'descarte',\n    supabase_update: JSON.stringify(supabaseUpdate)\n  }\n}];"
+      },
+      "id": "n-logic",
+      "name": "Lógica da Cadência",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.EVOLUTION_URL + '/message/sendText/' + $json.instance_name }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",       "value": "={{ $env.EVOLUTION_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ number: $json.lead.telefone, text: $json.msg }) }}",
+        "options": {}
+      },
+      "id": "n-send-msg",
+      "name": "Enviar Mensagem",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 120]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-mover",
+              "leftValue":  "={{ $('Lógica da Cadência').item.json.moverCrm }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "n-if-crm",
+      "name": "Mover no CRM?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1780, 320]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ 'https://crm.rdstation.com/api/v1/deals/' + $('Lógica da Cadência').item.json.lead.crm_deal_id + '?token=' + $('Lógica da Cadência').item.json.config.crm_access_token }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Accept",       "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ deal: { deal_stage_id: $('Lógica da Cadência').item.json.stageId } }) }}",
+        "options": {}
+      },
+      "id": "n-rd-move",
+      "name": "Mover Stage RD Station",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 260]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/sdr_leads?id=eq.' + $('Lógica da Cadência').item.json.lead.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "={{ $env.SUPABASE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_KEY }}" },
+            { "name": "Content-Type",  "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $('Lógica da Cadência').item.json.supabase_update }}",
+        "options": {}
+      },
+      "id": "n-update-lead",
+      "name": "Atualizar Lead Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2220, 220]
+    },
+    {
+      "parameters": { "options": {} },
+      "id": "n-noop",
+      "name": "Sem ação CRM",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [2000, 400]
+    }
+  ],
+  "connections": {
+    "A cada 5 minutos": {
+      "main": [[{ "node": "Buscar Leads Pendentes", "type": "main", "index": 0 }]]
+    },
+    "Buscar Leads Pendentes": {
+      "main": [[{ "node": "Tem leads?", "type": "main", "index": 0 }]]
+    },
+    "Tem leads?": {
+      "main": [
+        [{ "node": "Processar um por vez", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Processar um por vez": {
+      "main": [[{ "node": "Buscar Config do Cliente", "type": "main", "index": 0 }]]
+    },
+    "Buscar Config do Cliente": {
+      "main": [[{ "node": "Buscar Instance Name", "type": "main", "index": 0 }]]
+    },
+    "Buscar Instance Name": {
+      "main": [[{ "node": "Lógica da Cadência", "type": "main", "index": 0 }]]
+    },
+    "Lógica da Cadência": {
+      "main": [
+        [
+          { "node": "Enviar Mensagem",   "type": "main", "index": 0 },
+          { "node": "Mover no CRM?",     "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Mover no CRM?": {
+      "main": [
+        [{ "node": "Mover Stage RD Station", "type": "main", "index": 0 }],
+        [{ "node": "Sem ação CRM",           "type": "main", "index": 0 }]
+      ]
+    },
+    "Mover Stage RD Station": {
+      "main": [[{ "node": "Atualizar Lead Supabase", "type": "main", "index": 0 }]]
+    },
+    "Sem ação CRM": {
+      "main": [[{ "node": "Atualizar Lead Supabase", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" }
+}
