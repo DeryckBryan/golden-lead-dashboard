@@ -17,7 +17,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.item.json.body || $input.item.json;\nconst hora = new Date().getHours();\nconst saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';\nconst nomeCompleto = (body.nome || '').trim();\nconst primeiroNome = nomeCompleto.split(' ')[0];\n\nif (!body.client_id) throw new Error('client_id obrigatório');\nif (!body.telefone)  throw new Error('telefone obrigatório');\n\nreturn [{\n  json: {\n    client_id:     body.client_id,\n    nome:          nomeCompleto,\n    primeiro_nome: primeiroNome,\n    telefone:      (body.telefone || '').replace(/\\D/g, ''),\n    email:         body.email  || '',\n    origem:        body.origem || 'desconhecido',\n    saudacao\n  }\n}];"
+        "jsCode": "const body = $input.item.json.body || $input.item.json;\nconst hora = new Date().getHours();\nconst saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';\nconst nomeCompleto = (body.nome || '').trim();\nconst primeiroNome = nomeCompleto.split(' ')[0];\n\nif (!body.client_id) throw new Error('client_id obrigatório');\nif (!body.telefone)  throw new Error('telefone obrigatório');\n\nreturn [{\n  json: {\n    client_id:     body.client_id,\n    nome:          nomeCompleto,\n    primeiro_nome: primeiroNome,\n    telefone:      (t => t.startsWith('55') ? t : '55' + t)((body.telefone || '').replace(/\\D/g, '')),\n    email:         body.email  || '',\n    origem:        body.origem || 'desconhecido',\n    saudacao\n  }\n}];"
       },
       "id": "n-prep",
       "name": "Preparar Dados",
