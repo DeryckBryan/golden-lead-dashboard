@@ -16,12 +16,12 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/sdr_leads?proxima_acao_at=lte.' + new Date().toISOString() + '&estado=not.in.(descartado,nao_qualificado,reuniao_agendada,em_conversa)&select=*' }}",
+        "url": "={{ 'https://ltqtfqoomjozcjdbxagb.supabase.co/rest/v1/sdr_leads?proxima_acao_at=lte.' + new Date().toISOString() + '&estado=not.in.(descartado,nao_qualificado,reuniao_agendada,em_conversa)&select=*' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey",        "value": "={{ $env.SUPABASE_KEY }}" },
-            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_KEY }}" }
+            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" },
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" }
           ]
         },
         "options": {}
@@ -64,12 +64,12 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/client_actions?client_id=eq.' + $json.client_id + '&select=crm,crm_access_token,crm_pipeline_id,crm_mapeamento' }}",
+        "url": "={{ 'https://ltqtfqoomjozcjdbxagb.supabase.co/rest/v1/client_actions?client_id=eq.' + $json.client_id + '&select=crm,crm_access_token,crm_pipeline_id,crm_mapeamento' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey",        "value": "={{ $env.SUPABASE_KEY }}" },
-            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_KEY }}" }
+            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" },
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" }
           ]
         },
         "options": {}
@@ -83,12 +83,12 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/clients?id=eq.' + $('Processar um por vez').item.json.client_id + '&select=nome_fantasia' }}",
+        "url": "={{ 'https://ltqtfqoomjozcjdbxagb.supabase.co/rest/v1/clients?id=eq.' + $('Processar um por vez').item.json.client_id + '&select=nome_fantasia' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey",        "value": "={{ $env.SUPABASE_KEY }}" },
-            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_KEY }}" }
+            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" },
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" }
           ]
         },
         "options": {}
@@ -101,7 +101,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const lead    = $('Processar um por vez').item.json;\nconst configs = $('Buscar Config do Cliente').item.json;\nconst clients = $('Buscar Instance Name').item.json;\n\nconst config    = Array.isArray(configs) ? configs[0] : configs;\nconst clientRec = Array.isArray(clients) ? clients[0] : clients;\nconst mapeamento = config?.crm_mapeamento || {};\n\nconst nomeFantasia = (clientRec?.nome_fantasia || '').toLowerCase().replace(/\\s+/g, '-').replace(/[^a-z0-9-]/g, '');\nconst hora = new Date().getHours();\nconst saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';\nconst primeiroNome = (lead.nome || '').split(' ')[0];\n\n// Mensagens por ação\nconst mensagens = {\n  follow_up_5min:  `Meu nome é Pedro, acabei de receber seu cadastro em nossa campanha.\\nO que chamou sua atenção ${primeiroNome}, para seguir e fazer o cadastro?`,\n  tentativa_2:     `${saudacao} ${primeiroNome}`,\n  follow_up_4h:    `${primeiroNome}`,\n  tentativa_3:     `${primeiroNome} tem interesse ainda de continuar o bate papo?`,\n  descarte:        `${saudacao} ${primeiroNome}, tudo bem? Nós recebemos seu cadastro, tentamos contato por alguns dias e não tivemos sucesso. Estou cancelando seu cadastro em nosso sistema. Agradeço a atenção. Caso queira falar um pouco mais sobre COMO GERAR DEMANDA, COMO VENDER MAIS E MELHOR, estamos aqui para te atender.\\n\\n${saudacao}`\n};\n\n// Próxima ação após esta\nconst proximaAcaoMap = {\n  follow_up_5min:  { acao: 'tentativa_2',  minutos: 24 * 60,  estado: null },\n  tentativa_2:     { acao: 'follow_up_4h', minutos: 4  * 60,  estado: 'tentativa_2' },\n  follow_up_4h:    { acao: 'tentativa_3',  minutos: 24 * 60,  estado: null },\n  tentativa_3:     { acao: 'descarte',     minutos: 24 * 60,  estado: 'tentativa_3' },\n  descarte:        { acao: null,           minutos: 0,        estado: 'descartado' }\n};\n\nconst acaoAtual = lead.proxima_acao;\nconst msg       = mensagens[acaoAtual] || '';\nconst prox      = proximaAcaoMap[acaoAtual] || { acao: null, minutos: 0, estado: 'descartado' };\n\n// Stage CRM da ação atual (apenas tentativas e descarte mudam)\nconst crmStageMap = {\n  tentativa_2:  mapeamento.tentativa_2,\n  tentativa_3:  mapeamento.tentativa_3,\n  descarte:     mapeamento.sem_resposta_perda\n};\nconst stageId = crmStageMap[acaoAtual] || null;\n\nconst supabaseUpdate = {\n  ultima_acao_at:  new Date().toISOString(),\n  proxima_acao:    prox.acao,\n  proxima_acao_at: prox.acao ? new Date(Date.now() + prox.minutos * 60 * 1000).toISOString() : null\n};\nif (prox.estado) supabaseUpdate.estado = prox.estado;\n\nreturn [{\n  json: {\n    lead,\n    config,\n    instance_name:   nomeFantasia,\n    msg,\n    stageId,\n    moverCrm:        !!stageId,\n    descarteFinal:   acaoAtual === 'descarte',\n    supabase_update: JSON.stringify(supabaseUpdate)\n  }\n}];"
+        "jsCode": "const lead    = $('Processar um por vez').item.json;\nconst configs = $('Buscar Config do Cliente').item.json;\nconst clients = $('Buscar Instance Name').item.json;\n\nconst config    = Array.isArray(configs) ? configs[0] : configs;\nconst clientRec = Array.isArray(clients) ? clients[0] : clients;\nconst mapeamento = config?.crm_mapeamento || {};\n\nconst nomeFantasia = (clientRec?.nome_fantasia || '').toLowerCase().replace(/\\s+/g, '-').replace(/[^a-z0-9-]/g, '');\nconst hora = new Date().getHours();\nconst saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';\nconst primeiroNome = (lead.nome || '').split(' ')[0];\n\nconst mensagens = {\n  follow_up_5min:  `Meu nome é Pedro, acabei de receber seu cadastro em nossa campanha.\\nO que chamou sua atenção ${primeiroNome}, para seguir e fazer o cadastro?`,\n  tentativa_2:     `${saudacao} ${primeiroNome}`,\n  follow_up_4h:    `${primeiroNome}`,\n  tentativa_3:     `${primeiroNome} tem interesse ainda de continuar o bate papo?`,\n  descarte:        `${saudacao} ${primeiroNome}, tudo bem? Nós recebemos seu cadastro, tentamos contato por alguns dias e não tivemos sucesso. Estou cancelando seu cadastro em nosso sistema. Agradeço a atenção. Caso queira falar um pouco mais sobre COMO GERAR DEMANDA, COMO VENDER MAIS E MELHOR, estamos aqui para te atender.\\n\\n${saudacao}`\n};\n\nconst proximaAcaoMap = {\n  follow_up_5min:  { acao: 'tentativa_2',  minutos: 24 * 60,  estado: null },\n  tentativa_2:     { acao: 'follow_up_4h', minutos: 4  * 60,  estado: 'tentativa_2' },\n  follow_up_4h:    { acao: 'tentativa_3',  minutos: 24 * 60,  estado: null },\n  tentativa_3:     { acao: 'descarte',     minutos: 24 * 60,  estado: 'tentativa_3' },\n  descarte:        { acao: null,           minutos: 0,        estado: 'descartado' }\n};\n\nconst acaoAtual = lead.proxima_acao;\nconst msg       = mensagens[acaoAtual] || '';\nconst prox      = proximaAcaoMap[acaoAtual] || { acao: null, minutos: 0, estado: 'descartado' };\n\nconst crmStageMap = {\n  tentativa_2:  mapeamento.tentativa_2,\n  tentativa_3:  mapeamento.tentativa_3,\n  descarte:     mapeamento.sem_resposta_perda\n};\nconst stageId = crmStageMap[acaoAtual] || null;\n\nconst supabaseUpdate = {\n  ultima_acao_at:  new Date().toISOString(),\n  proxima_acao:    prox.acao,\n  proxima_acao_at: prox.acao ? new Date(Date.now() + prox.minutos * 60 * 1000).toISOString() : null\n};\nif (prox.estado) supabaseUpdate.estado = prox.estado;\n\nreturn [{\n  json: {\n    lead,\n    config,\n    instance_name:   nomeFantasia,\n    msg,\n    stageId,\n    moverCrm:        !!stageId,\n    supabase_update: JSON.stringify(supabaseUpdate)\n  }\n}];"
       },
       "id": "n-logic",
       "name": "Lógica da Cadência",
@@ -112,11 +112,11 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.EVOLUTION_URL + '/message/sendText/' + $json.instance_name }}",
+        "url": "={{ 'https://evolution-api-production-2155.up.railway.app/message/sendText/' + $json.instance_name }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey",       "value": "={{ $env.EVOLUTION_KEY }}" },
+            { "name": "apikey",       "value": "5276abc4da675e15947a9a4f205fa92ea29ca5bd741cbce008b9ec5df27b765a" },
             { "name": "Content-Type", "value": "application/json" }
           ]
         },
@@ -179,12 +179,12 @@
     {
       "parameters": {
         "method": "PATCH",
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/sdr_leads?id=eq.' + $('Lógica da Cadência').item.json.lead.id }}",
+        "url": "={{ 'https://ltqtfqoomjozcjdbxagb.supabase.co/rest/v1/sdr_leads?id=eq.' + $('Lógica da Cadência').item.json.lead.id }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey",        "value": "={{ $env.SUPABASE_KEY }}" },
-            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_KEY }}" },
+            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" },
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" },
             { "name": "Content-Type",  "value": "application/json" }
           ]
         },
