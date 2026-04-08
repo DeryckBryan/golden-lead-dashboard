@@ -51,7 +51,7 @@
           "conditions": [
             {
               "id": "cond-lead-found",
-              "leftValue":  "={{ Array.isArray($json) && $json.length > 0 }}",
+              "leftValue":  "={{ !!$json.id }}",
               "rightValue": true,
               "operator": { "type": "boolean", "operation": "true" }
             }
