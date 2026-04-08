@@ -17,7 +17,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.item.json.body || $input.item.json;\n\nconst fromMe = body?.data?.key?.fromMe || body?.key?.fromMe || false;\nif (fromMe) return [];\n\nconst event = body?.event || '';\nif (event !== 'messages.upsert') return [];\n\nconst remoteJid = body?.data?.key?.remoteJid || body?.key?.remoteJid || '';\nconst telefone  = remoteJid.replace('@s.whatsapp.net', '').replace(/\\D/g, '');\nconst texto     = body?.data?.message?.conversation\n               || body?.data?.message?.extendedTextMessage?.text\n               || body?.message?.conversation\n               || '';\n\nif (!telefone || !texto) return [];\n\nreturn [{ json: { telefone, texto, event_raw: body } }];"
+        "jsCode": "const body = $input.item.json.body || $input.item.json;\n\nconst fromMe = body?.data?.key?.fromMe || body?.key?.fromMe || false;\nif (fromMe) return [];\n\nconst event = (body?.event || '').toLowerCase();\nif (event !== 'messages.upsert') return [];\n\nconst remoteJid = body?.data?.key?.remoteJid || body?.key?.remoteJid || '';\nconst telefone  = remoteJid.replace('@s.whatsapp.net', '').replace(/\\D/g, '');\nconst texto     = body?.data?.message?.conversation\n               || body?.data?.message?.extendedTextMessage?.text\n               || body?.message?.conversation\n               || '';\n\nif (!telefone || !texto) return [];\n\nreturn [{ json: { telefone, texto, event_raw: body } }];"
       },
       "id": "n-filter",
       "name": "Filtrar Mensagem Válida",
