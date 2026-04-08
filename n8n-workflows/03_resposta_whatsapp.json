@@ -130,7 +130,7 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "x-api-key",        "value": "={{ $('Montar Prompt BANT').item.json.config.anthropic_key || $env.ANTHROPIC_KEY }}" },
+            { "name": "x-api-key",        "value": "SUA_CHAVE_ANTHROPIC_AQUI" },
             { "name": "anthropic-version", "value": "2023-06-01" },
             { "name": "Content-Type",      "value": "application/json" }
           ]
