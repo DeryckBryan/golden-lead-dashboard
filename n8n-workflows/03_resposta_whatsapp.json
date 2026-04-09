@@ -283,6 +283,39 @@
     },
     {
       "parameters": {
+        "jsCode": "const bant       = $('Processar Resposta BANT').item.json.bant;\nconst config     = $('Processar Resposta BANT').item.json.config;\nconst lead       = $('Processar Resposta BANT').item.json.lead;\nconst historico  = $('Montar Prompt BANT').item.json.historico || [];\n\nconst ultimaMsg  = [...historico].reverse().find(h => h.role === 'user')?.content || '';\nconst resposta   = bant.resposta || '';\n\nconst now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });\n\nconst texto = `🤖 [SDR IA] ${now}\\n\\n💬 Lead: ${ultimaMsg}\\n🤖 IA: ${resposta}\\n\\n📊 BANT:\\n💰 Budget: ${bant.bant_budget || 'N/A'}\\n👤 Decisor: ${bant.bant_authority || 'N/A'}\\n🎯 Necessidade: ${bant.bant_need || 'N/A'}\\n⏱ Prazo: ${bant.bant_timeline || 'N/A'}\\n\\n📌 Status: ${bant.acao}`;\n\nreturn [{ json: {\n  deal_id: lead.crm_deal_id,\n  token:   config.crm_access_token,\n  payload: JSON.stringify({ annotation: { text: texto } })\n} }];"
+      },
+      "id": "n-montar-anotacao",
+      "name": "Montar Anotação CRM",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2440, 480]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://crm.rdstation.com/api/v1/deals/' + $json.deal_id + '/annotations?token=' + $json.token }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Accept",       "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.payload }}",
+        "options": {}
+      },
+      "id": "n-criar-anotacao",
+      "name": "Criar Anotação RD Station",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2660, 480]
+    },
+    {
+      "parameters": {
         "respondWith": "json",
         "responseBody": "={ \"ok\": true }",
         "options": {}
@@ -341,7 +374,8 @@
       "main": [
         [
           { "node": "Enviar Resposta ao Lead",  "type": "main", "index": 0 },
-          { "node": "Mover Stage RD Station",   "type": "main", "index": 0 }
+          { "node": "Mover Stage RD Station",   "type": "main", "index": 0 },
+          { "node": "Montar Anotação CRM",      "type": "main", "index": 0 }
         ]
       ]
     },
@@ -367,6 +401,12 @@
       "main": [[{ "node": "Enviar Notif Vendedor", "type": "main", "index": 0 }]]
     },
     "Enviar Notif Vendedor": {
+      "main": []
+    },
+    "Montar Anotação CRM": {
+      "main": [[{ "node": "Criar Anotação RD Station", "type": "main", "index": 0 }]]
+    },
+    "Criar Anotação RD Station": {
       "main": []
     }
   },
