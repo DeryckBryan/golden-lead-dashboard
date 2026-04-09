@@ -283,7 +283,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const bant   = $('Processar Resposta BANT').item.json.bant;\nconst lead   = $('Processar Resposta BANT').item.json.lead;\nconst config = $('Processar Resposta BANT').item.json.config;\n\nif (bant.acao !== 'agendar') return [];\n\nif (!lead.crm_deal_id) return [];\n\nconst amanha = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];\n\nconst texto = `🗓️ Reunião com ${lead.nome}\\nTelefone: ${lead.telefone}\\n\\nPrazo/horário mencionado: ${bant.bant_timeline || 'A confirmar'}\\n\\n📊 BANT:\\n💰 Budget: ${bant.bant_budget || 'N/A'}\\n👤 Decisor: ${bant.bant_authority || 'N/A'}\\n🎯 Necessidade: ${bant.bant_need || 'N/A'}\\n\\nOrigem: SDR IA — lead qualificado e pediu reunião.`;\n\nreturn [{ json: {\n  token:   config.crm_access_token,\n  payload: JSON.stringify({ activity: { deal_id: lead.crm_deal_id, type: 'task', text: texto, date: amanha } })\n} }];"
+        "jsCode": "const bant   = $('Processar Resposta BANT').item.json.bant;\nconst lead   = $('Processar Resposta BANT').item.json.lead;\nconst config = $('Processar Resposta BANT').item.json.config;\n\nif (bant.acao !== 'agendar') return [];\n\nif (!lead.crm_deal_id) return [];\n\nconst reuniaoDate = bant.reuniao_em ? new Date(bant.reuniao_em) : new Date(Date.now() + 24 * 60 * 60 * 1000);\nconst due_date = reuniaoDate.toISOString().split('T')[0];\nconst hour = reuniaoDate.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });\n\nconst texto = `🗓️ Reunião com ${lead.nome}\\nTelefone: ${lead.telefone}\\n\\nData/hora: ${reuniaoDate.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}\\n\\n📊 BANT:\\n💰 Budget: ${bant.bant_budget || 'N/A'}\\n👤 Decisor: ${bant.bant_authority || 'N/A'}\\n🎯 Necessidade: ${bant.bant_need || 'N/A'}\\n⏱ Prazo: ${bant.bant_timeline || 'N/A'}\\n\\nOrigem: SDR IA — lead qualificado e pediu reunião.`;\n\nreturn [{ json: {\n  token:   config.crm_access_token,\n  payload: JSON.stringify({ task: { deal_id: lead.crm_deal_id, type: 'reuniao', text: texto, due_date, hour } })\n} }];"
       },
       "id": "n-montar-tarefa",
       "name": "Montar Tarefa Reunião",
@@ -294,7 +294,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ 'https://crm.rdstation.com/api/v1/activities?token=' + $json.token }}",
+        "url": "={{ 'https://crm.rdstation.com/api/v1/tasks?token=' + $json.token }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
