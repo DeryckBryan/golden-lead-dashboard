@@ -229,6 +229,60 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-qualificado",
+              "leftValue":  "={{ ['qualificado','agendar'].includes($('Processar Resposta BANT').item.json.acao) }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "n-if-qualif",
+      "name": "Lead Qualificado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2880, 220]
+    },
+    {
+      "parameters": {
+        "jsCode": "const bant          = $('Processar Resposta BANT').item.json.bant;\nconst lead          = $('Processar Resposta BANT').item.json.lead;\nconst config        = $('Processar Resposta BANT').item.json.config;\nconst instance_name = $('Processar Resposta BANT').item.json.instance_name;\n\nconst numero = (config.notif_whatsapp_numero || '').replace(/\\D/g, '');\nif (!numero) return [];\n\nconst titulo = bant.acao === 'agendar' ? '📅 Lead quer agendar reunião!' : '✅ Lead qualificado!';\n\nconst msg = `🔔 *${titulo}*\n\n*Nome:* ${lead.nome}\n*Telefone:* +${lead.telefone}\n*Origem:* ${lead.origem || 'desconhecido'}\n\n*Budget:* ${bant.bant_budget || 'N/A'}\n*Decisor:* ${bant.bant_authority || 'N/A'}\n*Necessidade:* ${bant.bant_need || 'N/A'}\n*Prazo:* ${bant.bant_timeline || 'N/A'}\n\nAcesse o CRM para dar sequência.`;\n\nreturn [{ json: { numero, msg, instance_name } }];"
+      },
+      "id": "n-montar-notif",
+      "name": "Montar Notif Vendedor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3100, 120]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://evolution-api-production-2155.up.railway.app/message/sendText/' + $json.instance_name }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",       "value": "5276abc4da675e15947a9a4f205fa92ea29ca5bd741cbce008b9ec5df27b765a" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ number: $json.numero, text: $json.msg }) }}",
+        "options": {}
+      },
+      "id": "n-send-notif",
+      "name": "Enviar Notif Vendedor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3320, 120]
+    },
+    {
+      "parameters": {
         "respondWith": "json",
         "responseBody": "={ \"ok\": true }",
         "options": {}
@@ -237,7 +291,7 @@
       "name": "Responder OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [2880, 220]
+      "position": [3540, 220]
     },
     {
       "parameters": {
@@ -298,6 +352,18 @@
       "main": [[{ "node": "Atualizar Lead Supabase", "type": "main", "index": 0 }]]
     },
     "Atualizar Lead Supabase": {
+      "main": [[{ "node": "Lead Qualificado?", "type": "main", "index": 0 }]]
+    },
+    "Lead Qualificado?": {
+      "main": [
+        [{ "node": "Montar Notif Vendedor", "type": "main", "index": 0 }],
+        [{ "node": "Responder OK",          "type": "main", "index": 0 }]
+      ]
+    },
+    "Montar Notif Vendedor": {
+      "main": [[{ "node": "Enviar Notif Vendedor", "type": "main", "index": 0 }]]
+    },
+    "Enviar Notif Vendedor": {
       "main": [[{ "node": "Responder OK", "type": "main", "index": 0 }]]
     }
   },
