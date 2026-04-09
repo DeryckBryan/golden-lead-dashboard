@@ -1,0 +1,163 @@
+{
+  "name": "SDR - 04 FUP Pré-Reunião",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "minutes", "minutesInterval": 15 }] }
+      },
+      "id": "n-cron",
+      "name": "Cron 15min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://ltqtfqoomjozcjdbxagb.supabase.co/rest/v1/sdr_leads?estado=eq.reuniao_agendada&reuniao_em=not.is.null&select=*' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" },
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n-get-leads",
+      "name": "Buscar Leads com Reunião",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = Date.now();\nconst raw = $input.item.json;\nconst leads = Array.isArray(raw) ? raw : [raw];\n\nconst results = [];\n\nfor (const lead of leads) {\n  if (!lead.reuniao_em) continue;\n\n  const reuniaoMs = new Date(lead.reuniao_em).getTime();\n  const diffMin   = (reuniaoMs - now) / 60000;\n  const fups      = lead.fups_enviados || [];\n\n  let fupKey = null;\n\n  // Janela de ±7 min em torno de cada marco\n  if (diffMin >= 473 && diffMin <= 487 && !fups.includes('fup_8h'))    fupKey = 'fup_8h';\n  else if (diffMin >= 53 && diffMin <= 67 && !fups.includes('fup_1h')) fupKey = 'fup_1h';\n  else if (diffMin >= -2 && diffMin <= 12 && !fups.includes('fup_5min')) fupKey = 'fup_5min';\n\n  if (!fupKey) continue;\n\n  const reuniao = new Date(lead.reuniao_em);\n  const dataFmt = reuniao.toLocaleString('pt-BR', {\n    timeZone: 'America/Sao_Paulo',\n    weekday: 'long', day: 'numeric', month: 'long',\n    hour: '2-digit', minute: '2-digit'\n  });\n\n  const primeiroNome = (lead.nome || '').split(' ')[0];\n\n  const mensagens = {\n    fup_8h:   `📅 Olá, ${primeiroNome}! Passando para lembrar da nossa conversa hoje — está agendada para ${dataFmt}. Qualquer dúvida é só chamar! 😊`,\n    fup_1h:   `⏰ ${primeiroNome}, daqui a pouco é a nossa conversa! Nos vemos em breve 😊`,\n    fup_5min: `🔔 ${primeiroNome}, estamos quase na hora! Só aguardando você 😊`\n  };\n\n  results.push({ json: {\n    lead,\n    fupKey,\n    mensagem: mensagens[fupKey]\n  } });\n}\n\nreturn results;"
+      },
+      "id": "n-filtrar-fups",
+      "name": "Filtrar FUPs a Enviar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://ltqtfqoomjozcjdbxagb.supabase.co/rest/v1/client_actions?client_id=eq.' + $json.lead.client_id + '&select=notif_whatsapp,notif_whatsapp_numero' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" },
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n-get-config",
+      "name": "Buscar Config Cliente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://ltqtfqoomjozcjdbxagb.supabase.co/rest/v1/clients?id=eq.' + $('Filtrar FUPs a Enviar').item.json.lead.client_id + '&select=nome_fantasia' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" },
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n-get-client",
+      "name": "Buscar Nome Cliente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const fupData   = $('Filtrar FUPs a Enviar').item.json;\nconst configs   = $('Buscar Config Cliente').item.json;\nconst clients   = $('Buscar Nome Cliente').item.json;\n\nconst config    = Array.isArray(configs) ? configs[0] : configs;\nconst clientRec = Array.isArray(clients) ? clients[0] : clients;\n\nconst nomeFantasia = (clientRec?.nome_fantasia || '').toLowerCase().replace(/\\s+/g, '-').replace(/[^a-z0-9-]/g, '');\n\nreturn [{ json: {\n  lead:          fupData.lead,\n  fupKey:        fupData.fupKey,\n  mensagem:      fupData.mensagem,\n  instance_name: nomeFantasia\n} }];"
+      },
+      "id": "n-montar",
+      "name": "Montar Envio",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://evolution-api-production-2155.up.railway.app/message/sendText/' + $json.instance_name }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",       "value": "5276abc4da675e15947a9a4f205fa92ea29ca5bd741cbce008b9ec5df27b765a" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ number: $json.lead.telefone, text: $json.mensagem }) }}",
+        "options": {}
+      },
+      "id": "n-send-fup",
+      "name": "Enviar FUP WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://ltqtfqoomjozcjdbxagb.supabase.co/rest/v1/sdr_leads?id=eq.' + $('Montar Envio').item.json.lead.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" },
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" },
+            { "name": "Content-Type",  "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ fups_enviados: ($('Montar Envio').item.json.lead.fups_enviados || []).concat($('Montar Envio').item.json.fupKey) }) }}",
+        "options": {}
+      },
+      "id": "n-update-fup",
+      "name": "Registrar FUP Enviado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 300]
+    }
+  ],
+  "connections": {
+    "Cron 15min": {
+      "main": [[{ "node": "Buscar Leads com Reunião", "type": "main", "index": 0 }]]
+    },
+    "Buscar Leads com Reunião": {
+      "main": [[{ "node": "Filtrar FUPs a Enviar", "type": "main", "index": 0 }]]
+    },
+    "Filtrar FUPs a Enviar": {
+      "main": [[{ "node": "Buscar Config Cliente", "type": "main", "index": 0 }]]
+    },
+    "Buscar Config Cliente": {
+      "main": [[{ "node": "Buscar Nome Cliente", "type": "main", "index": 0 }]]
+    },
+    "Buscar Nome Cliente": {
+      "main": [[{ "node": "Montar Envio", "type": "main", "index": 0 }]]
+    },
+    "Montar Envio": {
+      "main": [[{ "node": "Enviar FUP WhatsApp", "type": "main", "index": 0 }]]
+    },
+    "Enviar FUP WhatsApp": {
+      "main": [[{ "node": "Registrar FUP Enviado", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" }
+}

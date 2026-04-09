@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Client } from "@/types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Loader2, Plug, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, Plug, CheckCircle2, XCircle, Calendar } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { QRCodeSVG } from "qrcode.react";
 
 interface Props { client: Client }
 
@@ -112,6 +113,11 @@ export const AcoesTab: React.FC<Props> = ({ client }) => {
   const [pipelineId, setPipelineId] = useState("");
   const [crmMap, setCrmMap] = useState<Record<string, string>>({});
 
+  // Google Calendar
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [googleQrUrl, setGoogleQrUrl] = useState<string | null>(null);
+  const googlePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // CRM dinâmico
   const [connectStatus, setConnectStatus] = useState<ConnectStatus>("idle");
   const [pipelines, setPipelines] = useState<CrmOption[]>([]);
@@ -200,6 +206,7 @@ export const AcoesTab: React.FC<Props> = ({ client }) => {
         setSubdomain(data.crm_subdomain ?? "");
         setPipelineId(data.crm_pipeline_id ?? "");
         setCrmMap(data.crm_mapeamento ?? {});
+        setGoogleConnected(!!data.google_refresh_token);
 
         // Auto-connect silently se já tem token salvo
         if (data.crm && data.crm !== "nenhum" && data.crm_access_token) {
@@ -221,6 +228,11 @@ export const AcoesTab: React.FC<Props> = ({ client }) => {
     load();
   }, [client.id]);
 
+  // Limpar polling ao desmontar
+  useEffect(() => {
+    return () => { if (googlePollRef.current) clearInterval(googlePollRef.current); };
+  }, []);
+
   // Reset quando troca de CRM
   useEffect(() => {
     setConnectStatus("idle");
@@ -229,6 +241,50 @@ export const AcoesTab: React.FC<Props> = ({ client }) => {
     setPipelineId("");
     setCrmMap({});
   }, [crm]);
+
+  const iniciarGoogleAuth = () => {
+    const clientId     = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    const redirectUri  = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar-callback`;
+    const scope        = "https://www.googleapis.com/auth/calendar";
+    const state        = client.id;
+
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+      `client_id=${encodeURIComponent(clientId)}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&response_type=code` +
+      `&scope=${encodeURIComponent(scope)}` +
+      `&access_type=offline` +
+      `&prompt=consent` +
+      `&state=${encodeURIComponent(state)}`;
+
+    setGoogleQrUrl(authUrl);
+
+    // Polling: verifica a cada 4s se o token foi salvo
+    if (googlePollRef.current) clearInterval(googlePollRef.current);
+    googlePollRef.current = setInterval(async () => {
+      const { data } = await supabase
+        .from("client_actions")
+        .select("google_refresh_token")
+        .eq("client_id", client.id)
+        .maybeSingle();
+
+      if (data?.google_refresh_token) {
+        clearInterval(googlePollRef.current!);
+        setGoogleQrUrl(null);
+        setGoogleConnected(true);
+        toast.success("Google Calendar conectado com sucesso!");
+      }
+    }, 4000);
+  };
+
+  const desconectarGoogle = async () => {
+    await supabase
+      .from("client_actions")
+      .update({ google_refresh_token: null })
+      .eq("client_id", client.id);
+    setGoogleConnected(false);
+    toast.success("Google Calendar desconectado.");
+  };
 
   const salvar = async () => {
     setSaving(true);
@@ -281,7 +337,45 @@ export const AcoesTab: React.FC<Props> = ({ client }) => {
         <ToggleRow label="Enviar resumo por email" checked={notifEmail} onChange={setNotifEmail}>
           <Input value={emailDest} onChange={e => setEmailDest(e.target.value)} placeholder="email@exemplo.com" className="bg-secondary border-input" />
         </ToggleRow>
-        <ToggleRow label="Criar evento Google Calendar" checked={createCalendar} onChange={setCreateCalendar} />
+        <ToggleRow label="Criar evento Google Calendar" checked={createCalendar} onChange={setCreateCalendar}>
+          <div className="mt-3 space-y-3">
+            {googleConnected ? (
+              <div className="flex items-center justify-between rounded-lg bg-green-500/10 border border-green-500/30 px-3 py-2">
+                <div className="flex items-center gap-2 text-green-600 text-sm">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Google Calendar conectado
+                </div>
+                <button
+                  onClick={desconectarGoogle}
+                  className="text-xs text-muted-foreground underline hover:text-foreground"
+                >
+                  Desconectar
+                </button>
+              </div>
+            ) : googleQrUrl ? (
+              <div className="flex flex-col items-center gap-3 p-4 rounded-lg bg-secondary border border-border">
+                <p className="text-sm text-muted-foreground text-center">
+                  Peça ao cliente para escanear o QR Code com o celular e fazer login na conta Google dele
+                </p>
+                <div className="bg-white p-3 rounded-lg">
+                  <QRCodeSVG value={googleQrUrl} size={180} />
+                </div>
+                <p className="text-xs text-muted-foreground animate-pulse">Aguardando autorização...</p>
+                <button
+                  onClick={() => { setGoogleQrUrl(null); if (googlePollRef.current) clearInterval(googlePollRef.current); }}
+                  className="text-xs text-muted-foreground underline hover:text-foreground"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <Button variant="outline" size="sm" onClick={iniciarGoogleAuth} className="gap-2 w-full">
+                <Calendar className="h-4 w-4" />
+                Conectar Google Calendar
+              </Button>
+            )}
+          </div>
+        </ToggleRow>
       </Section>
 
       <Section title="Quando lead DESQUALIFICADO">
