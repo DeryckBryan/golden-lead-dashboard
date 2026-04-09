@@ -113,6 +113,9 @@ export const AcoesTab: React.FC<Props> = ({ client }) => {
   const [pipelineId, setPipelineId] = useState("");
   const [crmMap, setCrmMap] = useState<Record<string, string>>({});
 
+  // SDR IA
+  const [sdrInstrucoes, setSdrInstrucoes] = useState("");
+
   // Google Calendar
   const [googleConnected, setGoogleConnected] = useState(false);
   const [googleQrUrl, setGoogleQrUrl] = useState<string | null>(null);
@@ -207,6 +210,7 @@ export const AcoesTab: React.FC<Props> = ({ client }) => {
         setPipelineId(data.crm_pipeline_id ?? "");
         setCrmMap(data.crm_mapeamento ?? {});
         setGoogleConnected(!!data.google_refresh_token);
+        setSdrInstrucoes(data.sdr_instrucoes ?? "");
 
         // Auto-connect silently se já tem token salvo
         if (data.crm && data.crm !== "nenhum" && data.crm_access_token) {
@@ -306,6 +310,7 @@ export const AcoesTab: React.FC<Props> = ({ client }) => {
       crm_subdomain: subdomain,
       crm_pipeline_id: pipelineId,
       crm_mapeamento: crmMap,
+      sdr_instrucoes: sdrInstrucoes || null,
     };
 
     const { error } = await supabase.from("client_actions").upsert(payload, { onConflict: "client_id" });
@@ -324,6 +329,20 @@ export const AcoesTab: React.FC<Props> = ({ client }) => {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <div className="bg-card rounded-lg p-6 shadow-card border border-border">
+        <h4 className="font-heading text-base font-semibold text-foreground mb-1">Instruções para o SDR IA</h4>
+        <p className="text-xs text-muted-foreground font-body mb-3">
+          Escreva aqui as instruções específicas do seu negócio: produto/serviço, horários disponíveis para reunião, tom de voz, restrições, objeções comuns, etc. A IA usa isso em todas as conversas.
+        </p>
+        <textarea
+          value={sdrInstrucoes}
+          onChange={e => setSdrInstrucoes(e.target.value)}
+          rows={8}
+          placeholder={`Exemplos:\n- Somos uma consultoria de marketing digital focada em PMEs do setor de saúde\n- Reuniões disponíveis de segunda a sexta, das 9h às 18h (horário de Brasília)\n- Nunca ofereça desconto sem aprovação do comercial\n- Se o lead mencionar concorrente X, destaque nosso diferencial Y\n- Ticket médio entre R$3.000 e R$10.000/mês`}
+          className="w-full rounded-lg bg-secondary border border-input text-foreground font-body text-sm p-3 resize-none focus:outline-none focus:ring-2 focus:ring-primary/40"
+        />
+      </div>
+
       <Section title="Quando lead QUALIFICADO">
         <ToggleRow label="Notificar no WhatsApp" checked={notifWhatsapp} onChange={setNotifWhatsapp}>
           <Input
