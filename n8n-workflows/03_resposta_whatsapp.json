@@ -403,6 +403,138 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [2660, 840]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-check-cal",
+              "leftValue": "={{ $('Processar Resposta BANT').item.json.bant.acao === 'agendar' && !!$('Processar Resposta BANT').item.json.config.criar_calendar && !!$('Processar Resposta BANT').item.json.config.google_refresh_token && !!$('Processar Resposta BANT').item.json.bant.reuniao_em }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "n-precisa-cal",
+      "name": "Precisa checar calendar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2440, 1040]
+    },
+    {
+      "parameters": {
+        "jsCode": "const bant   = $('Processar Resposta BANT').item.json.bant;\nconst config = $('Processar Resposta BANT').item.json.config;\n\nconst inicio = new Date(bant.reuniao_em);\nconst fim    = new Date(inicio.getTime() + 60 * 60 * 1000);\n\nreturn [{ json: {\n  refresh_token: config.google_refresh_token,\n  timeMin: inicio.toISOString(),\n  timeMax: fim.toISOString()\n} }];"
+      },
+      "id": "n-prep-freebusy",
+      "name": "Preparar Freebusy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2660, 1040]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ltqtfqoomjozcjdbxagb.supabase.co/functions/v1/google-calendar-freebusy",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" },
+            { "name": "Content-Type",  "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ refresh_token: $json.refresh_token, timeMin: $json.timeMin, timeMax: $json.timeMax }) }}",
+        "options": {}
+      },
+      "id": "n-checar-freebusy",
+      "name": "Checar Disponibilidade Google",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2880, 1040]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-free",
+              "leftValue": "={{ !$json.busy }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "n-horario-livre",
+      "name": "Horário Disponível?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [3100, 1040]
+    },
+    {
+      "parameters": {
+        "jsCode": "const bant          = $('Processar Resposta BANT').item.json.bant;\nconst lead          = $('Processar Resposta BANT').item.json.lead;\nconst config        = $('Processar Resposta BANT').item.json.config;\nconst instance_name = $('Processar Resposta BANT').item.json.instance_name;\n\nconst inicio = new Date(bant.reuniao_em);\nconst dataFormatada = inicio.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' });\n\nconst resposta = `Poxa, esse horário (${dataFormatada}) já está ocupado na minha agenda. Podemos remarcar? Qual outro horário funcionaria melhor para você?`;\n\nconst historico = $('Montar Prompt BANT').item.json.historico || [];\nhistorico.push({ role: 'assistant', content: resposta, ts: new Date().toISOString() });\n\nconst supabase_update = JSON.stringify({\n  historico_conversa: historico,\n  ultima_acao_at: new Date().toISOString(),\n  estado: 'em_conversa',\n  proxima_acao: null,\n  proxima_acao_at: null\n});\n\nreturn [{ json: { lead, config, instance_name, resposta, supabase_update } }];"
+      },
+      "id": "n-montar-msg-ocupado",
+      "name": "Montar Msg Horário Ocupado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3320, 1160]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://evolution-api-production-2155.up.railway.app/message/sendText/' + $json.instance_name }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",       "value": "5276abc4da675e15947a9a4f205fa92ea29ca5bd741cbce008b9ec5df27b765a" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ number: $json.lead.telefone, text: $json.resposta }) }}",
+        "options": {}
+      },
+      "id": "n-enviar-msg-ocupado",
+      "name": "Enviar Msg Horário Ocupado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3540, 1100]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://ltqtfqoomjozcjdbxagb.supabase.co/rest/v1/sdr_leads?id=eq.' + $('Montar Msg Horário Ocupado').item.json.lead.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" },
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" },
+            { "name": "Content-Type",  "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $('Montar Msg Horário Ocupado').item.json.supabase_update }}",
+        "options": {}
+      },
+      "id": "n-update-lead-ocupado",
+      "name": "Atualizar Lead (Ocupado)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3540, 1240]
     }
   ],
   "connections": {
@@ -439,6 +571,16 @@
     "Processar Resposta BANT": {
       "main": [
         [
+          { "node": "Precisa checar calendar?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Precisa checar calendar?": {
+      "main": [
+        [
+          { "node": "Preparar Freebusy", "type": "main", "index": 0 }
+        ],
+        [
           { "node": "Enviar Resposta ao Lead",          "type": "main", "index": 0 },
           { "node": "Mover Stage RD Station",           "type": "main", "index": 0 },
           { "node": "Montar Anotação CRM",              "type": "main", "index": 0 },
@@ -447,6 +589,34 @@
         ]
       ]
     },
+    "Preparar Freebusy": {
+      "main": [[{ "node": "Checar Disponibilidade Google", "type": "main", "index": 0 }]]
+    },
+    "Checar Disponibilidade Google": {
+      "main": [[{ "node": "Horário Disponível?", "type": "main", "index": 0 }]]
+    },
+    "Horário Disponível?": {
+      "main": [
+        [
+          { "node": "Enviar Resposta ao Lead",          "type": "main", "index": 0 },
+          { "node": "Mover Stage RD Station",           "type": "main", "index": 0 },
+          { "node": "Montar Anotação CRM",              "type": "main", "index": 0 },
+          { "node": "Montar Tarefa Reunião",            "type": "main", "index": 0 },
+          { "node": "Montar Evento Google Calendar",    "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Montar Msg Horário Ocupado", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Montar Msg Horário Ocupado": {
+      "main": [[
+        { "node": "Enviar Msg Horário Ocupado", "type": "main", "index": 0 },
+        { "node": "Atualizar Lead (Ocupado)",   "type": "main", "index": 0 }
+      ]]
+    },
+    "Enviar Msg Horário Ocupado": { "main": [] },
+    "Atualizar Lead (Ocupado)": { "main": [] },
     "Montar Tarefa Reunião": {
       "main": [[{ "node": "Criar Tarefa RD Station", "type": "main", "index": 0 }]]
     },
