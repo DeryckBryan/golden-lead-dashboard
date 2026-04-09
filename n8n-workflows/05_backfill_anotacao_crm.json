@@ -49,7 +49,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const leads   = $('Buscar Último Lead').item.json;\nconst lead    = Array.isArray(leads) ? leads[0] : leads;\nconst configs = $('Buscar Config CRM').item.json;\nconst config  = Array.isArray(configs) ? configs[0] : configs;\n\nif (!lead?.crm_deal_id) throw new Error('Lead sem crm_deal_id — não foi criado no CRM ainda');\nif (!config?.crm_access_token) throw new Error('Token CRM não encontrado');\n\nconst historico = lead.historico_conversa || [];\n\nlet linhas = [];\nfor (const msg of historico) {\n  const hora = msg.ts ? new Date(msg.ts).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '';\n  const quem = msg.role === 'user' ? '💬 Lead' : '🤖 IA';\n  linhas.push(`${quem} (${hora}):\\n${msg.content}`);\n}\n\nconst conversa = linhas.join('\\n\\n---\\n\\n') || '(sem histórico registrado)';\n\nconst texto = `🤖 [SDR IA — Histórico Completo]\\n\\nNome: ${lead.nome}\\nTelefone: ${lead.telefone}\\nOrigem: ${lead.origem}\\nStatus: ${lead.estado}\\n\\n📊 BANT:\\n💰 Budget: ${lead.bant_budget || 'N/A'}\\n👤 Decisor: ${lead.bant_authority || 'N/A'}\\n🎯 Necessidade: ${lead.bant_need || 'N/A'}\\n⏱ Prazo: ${lead.bant_timeline || 'N/A'}\\n\\n💬 Conversa:\\n\\n${conversa}`;\n\nreturn [{ json: {\n  deal_id: lead.crm_deal_id,\n  token:   config.crm_access_token,\n  payload: JSON.stringify({ annotation: { text: texto } })\n} }];"
+        "jsCode": "const leads   = $('Buscar Último Lead').item.json;\nconst lead    = Array.isArray(leads) ? leads[0] : leads;\nconst configs = $('Buscar Config CRM').item.json;\nconst config  = Array.isArray(configs) ? configs[0] : configs;\n\nif (!lead?.crm_deal_id) throw new Error('Lead sem crm_deal_id — não foi criado no CRM ainda');\nif (!config?.crm_access_token) throw new Error('Token CRM não encontrado');\n\nconst historico = lead.historico_conversa || [];\n\nlet linhas = [];\nfor (const msg of historico) {\n  const hora = msg.ts ? new Date(msg.ts).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '';\n  const quem = msg.role === 'user' ? '💬 Lead' : '🤖 IA';\n  linhas.push(`${quem} (${hora}):\\n${msg.content}`);\n}\n\nconst conversa = linhas.join('\\n\\n---\\n\\n') || '(sem histórico registrado)';\n\nconst texto = `🤖 [SDR IA — Histórico Completo]\\n\\nNome: ${lead.nome}\\nTelefone: ${lead.telefone}\\nOrigem: ${lead.origem}\\nStatus: ${lead.estado}\\n\\n📊 BANT:\\n💰 Budget: ${lead.bant_budget || 'N/A'}\\n👤 Decisor: ${lead.bant_authority || 'N/A'}\\n🎯 Necessidade: ${lead.bant_need || 'N/A'}\\n⏱ Prazo: ${lead.bant_timeline || 'N/A'}\\n\\n💬 Conversa:\\n\\n${conversa}`;\n\nreturn [{ json: {\n  token:   config.crm_access_token,\n  payload: JSON.stringify({ activity: { deal_id: lead.crm_deal_id, type: 'note', text: texto } })\n} }];"
       },
       "id": "n-montar",
       "name": "Montar Anotação Completa",
@@ -60,7 +60,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ 'https://crm.rdstation.com/api/v1/deals/' + $json.deal_id + '/annotations?token=' + $json.token }}",
+        "url": "={{ 'https://crm.rdstation.com/api/v1/activities?token=' + $json.token }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
