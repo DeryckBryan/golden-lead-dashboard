@@ -1,0 +1,99 @@
+{
+  "name": "SDR - 05 Backfill Anotação CRM (Manual)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "n-trigger",
+      "name": "Executar Manualmente",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://ltqtfqoomjozcjdbxagb.supabase.co/rest/v1/sdr_leads?select=*&order=created_at.desc&limit=1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" },
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n-get-lead",
+      "name": "Buscar Último Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://ltqtfqoomjozcjdbxagb.supabase.co/rest/v1/client_actions?client_id=eq.' + $json.client_id + '&select=crm_access_token' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" },
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n-get-config",
+      "name": "Buscar Config CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const leads   = $('Buscar Último Lead').item.json;\nconst lead    = Array.isArray(leads) ? leads[0] : leads;\nconst configs = $('Buscar Config CRM').item.json;\nconst config  = Array.isArray(configs) ? configs[0] : configs;\n\nif (!lead?.crm_deal_id) throw new Error('Lead sem crm_deal_id — não foi criado no CRM ainda');\nif (!config?.crm_access_token) throw new Error('Token CRM não encontrado');\n\nconst historico = lead.historico_conversa || [];\n\nlet linhas = [];\nfor (const msg of historico) {\n  const hora = msg.ts ? new Date(msg.ts).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '';\n  const quem = msg.role === 'user' ? '💬 Lead' : '🤖 IA';\n  linhas.push(`${quem} (${hora}):\\n${msg.content}`);\n}\n\nconst conversa = linhas.join('\\n\\n---\\n\\n') || '(sem histórico registrado)';\n\nconst texto = `🤖 [SDR IA — Histórico Completo]\\n\\nNome: ${lead.nome}\\nTelefone: ${lead.telefone}\\nOrigem: ${lead.origem}\\nStatus: ${lead.estado}\\n\\n📊 BANT:\\n💰 Budget: ${lead.bant_budget || 'N/A'}\\n👤 Decisor: ${lead.bant_authority || 'N/A'}\\n🎯 Necessidade: ${lead.bant_need || 'N/A'}\\n⏱ Prazo: ${lead.bant_timeline || 'N/A'}\\n\\n💬 Conversa:\\n\\n${conversa}`;\n\nreturn [{ json: {\n  deal_id: lead.crm_deal_id,\n  token:   config.crm_access_token,\n  payload: JSON.stringify({ annotation: { text: texto } })\n} }];"
+      },
+      "id": "n-montar",
+      "name": "Montar Anotação Completa",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://crm.rdstation.com/api/v1/deals/' + $json.deal_id + '/annotations?token=' + $json.token }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Accept",       "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.payload }}",
+        "options": {}
+      },
+      "id": "n-post-anotacao",
+      "name": "Criar Anotação RD Station",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Executar Manualmente": {
+      "main": [[{ "node": "Buscar Último Lead", "type": "main", "index": 0 }]]
+    },
+    "Buscar Último Lead": {
+      "main": [[{ "node": "Buscar Config CRM", "type": "main", "index": 0 }]]
+    },
+    "Buscar Config CRM": {
+      "main": [[{ "node": "Montar Anotação Completa", "type": "main", "index": 0 }]]
+    },
+    "Montar Anotação Completa": {
+      "main": [[{ "node": "Criar Anotação RD Station", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" }
+}
