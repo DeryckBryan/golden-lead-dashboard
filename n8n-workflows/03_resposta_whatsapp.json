@@ -346,25 +346,28 @@
       ]
     },
     "Enviar Resposta ao Lead": {
-      "main": [[{ "node": "Atualizar Lead Supabase", "type": "main", "index": 0 }]]
+      "main": [[
+        { "node": "Atualizar Lead Supabase", "type": "main", "index": 0 },
+        { "node": "Lead Qualificado?",       "type": "main", "index": 0 }
+      ]]
     },
     "Mover Stage RD Station": {
       "main": [[{ "node": "Atualizar Lead Supabase", "type": "main", "index": 0 }]]
     },
     "Atualizar Lead Supabase": {
-      "main": [[{ "node": "Lead Qualificado?", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Responder OK", "type": "main", "index": 0 }]]
     },
     "Lead Qualificado?": {
       "main": [
         [{ "node": "Montar Notif Vendedor", "type": "main", "index": 0 }],
-        [{ "node": "Responder OK",          "type": "main", "index": 0 }]
+        []
       ]
     },
     "Montar Notif Vendedor": {
       "main": [[{ "node": "Enviar Notif Vendedor", "type": "main", "index": 0 }]]
     },
     "Enviar Notif Vendedor": {
-      "main": [[{ "node": "Responder OK", "type": "main", "index": 0 }]]
+      "main": []
     }
   },
   "settings": { "executionOrder": "v1" }
