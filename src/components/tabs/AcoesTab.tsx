@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Loader2, Plug, CheckCircle2, XCircle, Calendar } from "lucide-react";
+import { Loader2, Plug, CheckCircle2, XCircle, Calendar, Download } from "lucide-react";
+import { PROMPT_B2B, PROMPT_B2C, downloadPrompt } from "@/lib/sdr-prompts";
 import { supabase } from "@/lib/supabase";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -330,9 +331,31 @@ export const AcoesTab: React.FC<Props> = ({ client }) => {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="bg-card rounded-lg p-6 shadow-card border border-border">
-        <h4 className="font-heading text-base font-semibold text-foreground mb-1">Instruções para o SDR IA</h4>
+        <div className="flex items-start justify-between mb-1 gap-3">
+          <h4 className="font-heading text-base font-semibold text-foreground">Instruções para o SDR IA</h4>
+          <div className="flex gap-2 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => downloadPrompt(PROMPT_B2B, 'prompt-sdr-b2b.txt')}
+              className="gap-1.5 text-xs h-8"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Prompt B2B
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => downloadPrompt(PROMPT_B2C, 'prompt-sdr-b2c.txt')}
+              className="gap-1.5 text-xs h-8"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Prompt B2C
+            </Button>
+          </div>
+        </div>
         <p className="text-xs text-muted-foreground font-body mb-3">
-          Escreva aqui as instruções específicas do seu negócio: produto/serviço, horários disponíveis para reunião, tom de voz, restrições, objeções comuns, etc. A IA usa isso em todas as conversas.
+          Escreva aqui as instruções específicas do seu negócio: produto/serviço, horários disponíveis para reunião, tom de voz, restrições, objeções comuns, etc. Baixe um template de prompt pronto para começar.
         </p>
         <textarea
           value={sdrInstrucoes}
