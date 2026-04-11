@@ -12,28 +12,40 @@
       "name": "Webhook - Resposta WhatsApp",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [240, 300],
+      "position": [
+        240,
+        300
+      ],
       "webhookId": "sdr-whatsapp-response"
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.item.json.body || $input.item.json;\n\nconst fromMe = body?.data?.key?.fromMe || body?.key?.fromMe || false;\nif (fromMe) return [];\n\nconst event = (body?.event || '').toLowerCase();\nif (event !== 'messages.upsert') return [];\n\nconst remoteJidCheck = body?.data?.key?.remoteJid || body?.key?.remoteJid || '';\nif (remoteJidCheck.includes('@g.us')) return [];\n\nconst remoteJid = body?.data?.key?.remoteJid || body?.key?.remoteJid || '';\nconst telefone  = remoteJid.replace('@s.whatsapp.net', '').replace(/\\D/g, '');\nconst texto     = body?.data?.message?.conversation\n               || body?.data?.message?.extendedTextMessage?.text\n               || body?.message?.conversation\n               || '';\n\nif (!telefone || !texto) return [];\n\nreturn [{ json: { telefone, texto, event_raw: body } }];"
+        "jsCode": "const body = $input.item.json.body || $input.item.json;\n\n// Bloquear mensagens do próprio bot\nconst fromMe = body?.data?.key?.fromMe || body?.key?.fromMe || body?.data?.fromMe || body?.fromMe || false;\nif (fromMe) return [];\n\n// Apenas eventos de mensagem recebida\nconst event = (body?.event || '').toLowerCase();\nif (event !== 'messages.upsert') return [];\n\n// Bloquear mensagens de sistema/protocolo\nconst msgType = body?.data?.messageType || '';\nif (['protocolMessage','senderKeyDistributionMessage','reactionMessage'].includes(msgType)) return [];\n\n// Ignorar grupos\nconst remoteJid = body?.data?.key?.remoteJid || body?.key?.remoteJid || '';\nif (remoteJid.includes('@g.us')) return [];\n\nconst telefone = remoteJid.replace('@s.whatsapp.net', '').replace(/\\D/g, '');\nconst instance  = body?.instance || body?.instanceName || body?.sender || body?.destination || '';\nif (!telefone) return [];\n\n// Mensagem de áudio (ptt = push-to-talk / voice note)\nif (msgType === 'audioMessage' || msgType === 'pttMessage') {\n  return [{ json: {\n    telefone,\n    texto: null,\n    isAudio: true,\n    audioMsg:      body?.data?.message,\n    audioKey:      body?.data?.key,\n    audioInstance: instance\n  }}];\n}\n\n// Mensagem de texto\nconst texto = body?.data?.message?.conversation\n           || body?.data?.message?.extendedTextMessage?.text\n           || body?.message?.conversation\n           || '';\nif (!texto) return [];\n\nreturn [{ json: { telefone, texto, isAudio: false } }];"
       },
       "id": "n-filter",
       "name": "Filtrar Mensagem Válida",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [460, 300]
+      "position": [
+        460,
+        300
+      ]
     },
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ 'https://ltqtfqoomjozcjdbxagb.supabase.co/rest/v1/sdr_leads?telefone=eq.' + $json.telefone + '&estado=not.in.(descartado,nao_qualificado,reuniao_agendada)&select=*&order=created_at.desc&limit=1' }}",
+        "url": "={{ 'https://ltqtfqoomjozcjdbxagb.supabase.co/rest/v1/sdr_leads?telefone=eq.' + $json.telefone + '&estado=not.in.(descartado,nao_qualificado,reuniao_agendada,limite_mensagens)&select=*&order=created_at.desc&limit=1' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" },
-            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" }
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ"
+            }
           ]
         },
         "options": {}
@@ -42,18 +54,29 @@
       "name": "Buscar Lead por Telefone",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [680, 300]
+      "position": [
+        680,
+        300
+      ],
+      "continueOnFail": true
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
               "id": "cond-lead-found",
-              "leftValue":  "={{ !!$json.id }}",
+              "leftValue": "={{ !!$json.id }}",
               "rightValue": true,
-              "operator": { "type": "boolean", "operation": "true" }
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
             }
           ],
           "combinator": "and"
@@ -63,27 +86,39 @@
       "name": "Lead encontrado?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [900, 300]
+      "position": [
+        900,
+        300
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const leads   = $('Buscar Lead por Telefone').item.json;\nconst lead    = Array.isArray(leads) ? leads[0] : leads;\nconst texto   = $('Filtrar Mensagem Válida').item.json.texto;\n\nconst historico = lead.historico_conversa || [];\nhistorico.push({ role: 'user', content: texto, ts: new Date().toISOString() });\n\nconst eraEmTentativa = ['tentativa_1','tentativa_2','tentativa_3'].includes(lead.estado);\n\nreturn [{\n  json: {\n    lead,\n    texto,\n    historico,\n    eraEmTentativa,\n    historico_json: JSON.stringify(historico)\n  }\n}];"
+        "jsCode": "const leads = $('Buscar Lead por Telefone').item.json;\nconst lead  = Array.isArray(leads) ? leads[0] : leads;\n\n// Buscar texto: tenta áudio transcrito primeiro, cai em texto digitado\nlet texto;\ntry {\n  texto = $('Definir Texto Áudio').item.json.texto || '';\n} catch(e) {\n  texto = $('Filtrar Mensagem Válida').item.json.texto || '';\n}\n\n// Ignorar áudio que não foi transcrito\nif (!texto || texto === '[áudio não transcrito]') return [];\n\nconst historico = lead.historico_conversa || [];\n\n// Proteção contra eco: ignorar se texto é igual à última mensagem do bot\nconst ultimaMensagem = historico.length > 0 ? historico[historico.length - 1] : null;\nif (ultimaMensagem && ultimaMensagem.role === 'assistant' && ultimaMensagem.content === texto) {\n  return [];\n}\n\n// Proteção contra race condition: se reunião já está agendada (pode ter sido salva por execução paralela), ignorar\nif (lead.estado === 'reuniao_agendada') return [];\n\nhistorico.push({ role: 'user', content: texto, ts: new Date().toISOString() });\n\nconst eraEmTentativa = ['tentativa_1','tentativa_2','tentativa_3'].includes(lead.estado);\n\nreturn [{\n  json: {\n    lead,\n    texto,\n    historico,\n    eraEmTentativa,\n    historico_json: JSON.stringify(historico)\n  }\n}];"
       },
       "id": "n-prep-lead",
       "name": "Preparar Lead e Histórico",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1120, 220]
+      "position": [
+        1120,
+        220
+      ]
     },
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ 'https://ltqtfqoomjozcjdbxagb.supabase.co/rest/v1/client_actions?client_id=eq.' + $json.lead.client_id + '&select=crm,crm_access_token,crm_pipeline_id,crm_mapeamento,notif_whatsapp,notif_whatsapp_numero,google_refresh_token,criar_calendar,sdr_instrucoes' }}",
+        "url": "={{ 'https://ltqtfqoomjozcjdbxagb.supabase.co/rest/v1/client_actions?client_id=eq.' + $json.lead.client_id + '&select=crm,crm_access_token,crm_pipeline_id,crm_mapeamento,notif_whatsapp,notif_whatsapp_numero,google_refresh_token,criar_calendar,sdr_instrucoes,sdr_tempo_resposta,sdr_max_mensagens' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" },
-            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" }
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ"
+            }
           ]
         },
         "options": {}
@@ -92,7 +127,11 @@
       "name": "Buscar Config Cliente",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1340, 220]
+      "position": [
+        1340,
+        220
+      ],
+      "continueOnFail": true
     },
     {
       "parameters": {
@@ -101,8 +140,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" },
-            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" }
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ"
+            }
           ]
         },
         "options": {}
@@ -111,17 +156,24 @@
       "name": "Buscar Dados Cliente",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1560, 220]
+      "position": [
+        1560,
+        220
+      ],
+      "continueOnFail": true
     },
     {
       "parameters": {
-        "jsCode": "const prepData  = $('Preparar Lead e Histórico').item.json;\nconst lead      = prepData.lead;\nconst configs   = $('Buscar Config Cliente').item.json;\nconst clients   = $('Buscar Dados Cliente').item.json;\n\nconst config     = Array.isArray(configs) ? configs[0] : configs;\nconst clientRec  = Array.isArray(clients) ? clients[0] : clients;\nconst mapeamento = config?.crm_mapeamento || {};\nconst nomeFantasia = (clientRec?.nome_fantasia || '').toLowerCase().replace(/\\s+/g, '-').replace(/[^a-z0-9-]/g, '');\n\nconst historico = prepData.historico;\nconst agora = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));\nconst hora = agora.getHours();\nconst saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';\nconst hoje = agora.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\nconst instrucoes = config?.sdr_instrucoes ? `\\n\\nINSTRUÇÕES ESPECÍFICAS DO CLIENTE (siga com prioridade):\\n${config.sdr_instrucoes}` : '';\nconst systemPrompt = `Você é um SDR de IA da ${clientRec?.razao_social || 'empresa'}. Analise a conversa e faça qualificação BANT com foco em Budget e Authority primeiro.\\n\\nData e hora atual (horário de Brasília): ${hoje} — saudação correta agora: \"${saudacao}\"\\nSempre que for iniciar uma frase ou cumprimentar o lead, use \"${saudacao}\".\\n\\nResposta OBRIGATÓRIA em JSON:\\n{\\n  \"acao\": \"qualificado\" | \"nao_qualificado\" | \"continuar\" | \"agendar\" | \"retornar\",\\n  \"resposta\": \"mensagem para enviar ao lead (em português, natural)\",\\n  \"bant_budget\": \"o que descobrimos sobre budget\",\\n  \"bant_authority\": \"o que descobrimos sobre quem decide\",\\n  \"bant_need\": \"qual a necessidade\",\\n  \"bant_timeline\": \"prazo\",\\n  \"motivo_perda\": \"motivo se nao_qualificado, senão null\",\\n  \"retornar_em\": \"data ISO 8601 confirmada para retorno (ex: 2026-04-15T10:00:00-03:00), ou null\",\\n  \"reuniao_em\": \"data e hora ISO 8601 da reunião se acao=agendar (ex: 2026-04-15T15:00:00-03:00), ou null\"\\n}\\n\\nRegras:\\n- \"qualificado\": lead tem budget, é o decisor (ou influenciador), tem necessidade real\\n- \"nao_qualificado\": claramente sem budget, sem autoridade, sem fit\\n- \"agendar\": lead qualificado e PEDIU ou ACEITOU reunião\\n- \"retornar\": lead CONFIRMOU uma data específica para ser contatado novamente\\n- \"continuar\": ainda qualificando, OU negociando data de retorno\\n\\nRegras para \\\"agendar\\\":\\n1. Se você sugeriu horários (ex: \\\"9h ou 10h\\\") e o lead escolheu um (ex: \\\"9h\\\", \\\"pode ser\\\", \\\"tá bom\\\"), use IMEDIATAMENTE acao=\\\"agendar\\\" com reuniao_em no horário escolhido. NÃO peça confirmação adicional.\\n2. Se o lead disse um horário específico e você confirmou, use acao=\\\"agendar\\\".\\n3. Apenas use acao=\\\"continuar\\\" se ainda não há horário definido.\\n\\nRegras para \\\"retornar\\\":\\n1. Se o lead pedir retorno em MENOS de 7 dias: confirme e use acao=\\\"retornar\\\" com retornar_em em ISO 8601\\n2. Se o lead pedir retorno em 7 DIAS OU MAIS: sugira uma data mais próxima na resposta e use acao=\\\"continuar\\\"\\n3. Se o lead INSISTIR na data mais distante após sugestão: aceite, use acao=\\\"retornar\\\" com a data pedida em ISO 8601\\n4. O retorno pode ser chat ou reunião — se não ficou claro, pergunte\\n- Seja natural, humano, não robótico. Máximo 3 linhas por mensagem.${instrucoes}\\n\\nIMPORTANTE: Sua resposta deve ser EXCLUSIVAMENTE um objeto JSON válido. Não inclua nenhum texto antes ou depois do JSON. Não use markdown, não use blocos de código. Comece diretamente com { e termine com }.`;\n\nconst messages = historico.map(h => ({\n  role: h.role,\n  content: h.content\n}));\n\nconst claudePayload = JSON.stringify({\n  model: 'claude-sonnet-4-6',\n  max_tokens: 1024,\n  system: systemPrompt,\n  messages\n});\n\nreturn [{\n  json: {\n    lead,\n    config,\n    mapeamento,\n    instance_name:    nomeFantasia,\n    historico:        prepData.historico,\n    eraEmTentativa:   prepData.eraEmTentativa,\n    claude_payload:   claudePayload,\n    historico_json:   prepData.historico_json\n  }\n}];"
+        "jsCode": "try {\nconst prepData  = $('Preparar Lead e Histórico').item.json;\nconst lead      = prepData.lead;\nconst configs   = $('Buscar Config Cliente').item.json;\nconst clients   = $('Buscar Dados Cliente').item.json;\nconst briefings = $('Buscar Briefing Cliente').item.json;\nconst icps      = $('Buscar ICP Cliente').item.json;\nconst bantCfgs  = $('Buscar BANT Config').item.json;\n\nconst config     = Array.isArray(configs)   ? configs[0]   : configs;\nconst clientRec  = Array.isArray(clients)   ? clients[0]   : clients;\nconst briefing   = Array.isArray(briefings) ? briefings[0] : briefings;\nconst icp        = Array.isArray(icps)      ? icps[0]      : icps;\nconst bantCfg    = Array.isArray(bantCfgs)  ? bantCfgs[0]  : bantCfgs;\nconst mapeamento = config?.crm_mapeamento || {};\nconst nomeFantasia = (clientRec?.nome_fantasia || '').toLowerCase().replace(/\\s+/g, '-').replace(/[^a-z0-9-]/g, '');\n\nconst historico = prepData.historico;\nconst agora = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));\nconst hora = agora.getHours();\nconst saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';\nconst hoje = agora.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\nconst hojeISO = agora.toISOString().split('T')[0];\nconst amanhaISO = new Date(agora.getTime() + 86400000).toISOString().split('T')[0];\nconst primeiroNome = (lead.nome || '').split(' ')[0] || 'lead';\n\n// ── Bloco de contexto ──\nconst contexto = `CONTEXTO DO LEAD:\n- Nome: ${primeiroNome}\n- Origem: ${lead.origem || 'desconhecido'}\n- Data/hora atual (Brasília): ${hoje} — saudação: \"${saudacao}\"\n- Referência de datas ISO: hoje=${hojeISO} | amanhã=${amanhaISO}\n\nREGRAS OBRIGATÓRIAS DE COMPORTAMENTO:\n1. Você JÁ iniciou esta conversa (veja o histórico). NÃO se re-apresente.\n2. NÃO peça o nome do lead se já o usou.\n3. NÃO pergunte \"como posso te ajudar\" — VOCÊ iniciou o contato.\n4. Continue exatamente de onde a conversa parou.\n5. Máximo 3 linhas por mensagem. Seja direto e natural.\n6. NUNCA assuma o tipo ou perfil do negócio do lead com base no ICP ou Briefing. Use APENAS o que o lead declarou explicitamente nesta conversa.\n7. NUNCA descarte (nao_qualificado) sem antes perguntar e confirmar o faturamento real do lead. Tipo de negócio SOZINHO não é motivo de descarte.\n8. Use SOMENTE informações que o próprio lead disse. Nunca invente ou assuma dados que ele não forneceu.\n9. Se o lead questionar uma afirmação sua, reconheça brevemente e continue qualificando normalmente.\n10. Se o lead perguntar se você é IA, robô, bot ou similar: confirme de forma leve e descontraída, depois redirecione (ex: 'Haha eu sou. Por quê, tô falando estranho? 😅'). SEMPRE em JSON.`;\n\n// ── Bloco Briefing ──\nlet briefingCtx = '';\nif (briefing && briefing.id) {\n  const parts = ['\\nINFORMAÇÕES DA EMPRESA:'];\n  if (briefing.descricao_empresa) parts.push('- Descrição: ' + briefing.descricao_empresa);\n  if (briefing.produto_servico)   parts.push('- Produto/Serviço: ' + briefing.produto_servico);\n  if (briefing.ticket_medio)      parts.push('- Ticket Médio: R$' + briefing.ticket_medio);\n  if (briefing.diferencial)       parts.push('- Diferencial: ' + briefing.diferencial);\n  if (briefing.publico_alvo)      parts.push('- Público-alvo: ' + briefing.publico_alvo);\n  if (briefing.regioes_atuacao && briefing.regioes_atuacao.length)\n    parts.push('- Regiões: ' + briefing.regioes_atuacao.join(', '));\n  if (briefing.principais_dores && briefing.principais_dores.length)\n    parts.push('- Dores que resolve: ' + briefing.principais_dores.join(', '));\n  if (briefing.principais_objecoes && briefing.principais_objecoes.length)\n    parts.push('- Objeções comuns: ' + briefing.principais_objecoes.join(', '));\n  if (briefing.tom_comunicacao)   parts.push('- Tom: ' + briefing.tom_comunicacao);\n  if (briefing.evitar_mencionar)  parts.push('- Evitar: ' + briefing.evitar_mencionar);\n  if (briefing.observacoes_livres) parts.push('- Obs: ' + briefing.observacoes_livres);\n  briefingCtx = parts.join('\\n');\n}\n\n// ── Bloco ICP ──\nlet icpCtx = '';\nif (icp && icp.id) {\n  const parts = ['\\nPERFIL DE CLIENTE IDEAL (ICP) — ATENCAO: estes criterios descrevem o cliente ideal buscado. NAO e o perfil do lead atual. Use para guiar perguntas, nao para assumir o perfil do lead:'];\n  if (icp.segmentos && icp.segmentos.length)\n    parts.push('- Segmentos aceitos: ' + icp.segmentos.join(', '));\n  if (icp.faturamento_minimo || icp.faturamento_maximo)\n    parts.push('- Faturamento: R$' + (icp.faturamento_minimo || '0') + ' a R$' + (icp.faturamento_maximo || 'sem limite') + '/mês');\n  if (icp.funcionarios_min || icp.funcionarios_max)\n    parts.push('- Funcionários: ' + (icp.funcionarios_min || '0') + ' a ' + (icp.funcionarios_max || 'sem limite'));\n  if (icp.cargos_alvo && icp.cargos_alvo.length)\n    parts.push('- Cargos decisores: ' + icp.cargos_alvo.join(', '));\n  if (icp.regioes && icp.regioes.length)\n    parts.push('- Regiões: ' + icp.regioes.join(', '));\n  if (icp.criterios_exclusao && icp.criterios_exclusao.length)\n    parts.push('- Exclusões: ' + icp.criterios_exclusao.join(', '));\n  parts.push('- IMPORTANTE: \"Prestadores de Serviço com Recorrência\" inclui agências, escritórios, consultorias, academias, salões e qualquer negócio com receita recorrente. Use o Público-alvo do Briefing E o ICP juntos para qualificar.');\n  icpCtx = parts.join('\\n');\n}\n\n// ── Bloco BANT ──\nlet bantCtx = '';\nif (bantCfg && bantCfg.id) {\n  const parts = ['\\nCONFIGURAÇÃO BANT:'];\n  if (bantCfg.budget_perguntas && bantCfg.budget_perguntas.length)\n    parts.push('- Perguntas budget: ' + bantCfg.budget_perguntas.join(' | '));\n  if (bantCfg.authority_cargos && bantCfg.authority_cargos.length)\n    parts.push('- Cargos autoridade: ' + bantCfg.authority_cargos.join(', '));\n  if (bantCfg.need_perguntas && bantCfg.need_perguntas.length)\n    parts.push('- Perguntas need: ' + bantCfg.need_perguntas.join(' | '));\n  if (bantCfg.timeline_max_dias)\n    parts.push('- Timeline máx: ' + bantCfg.timeline_max_dias + ' dias');\n  bantCtx = parts.join('\\n');\n}\n\n// ── Instruções customizadas (sdr_instrucoes como guia comportamental) ──\nconst instrucoesBloqueio = config?.sdr_instrucoes\n  ? `\\nDIRETRIZES DO SDR (guia comportamental — NÃO altera o formato de resposta):\n${config.sdr_instrucoes}`\n  : '';\n\n// ── Formato JSON — SEMPRE por último, sobrepõe tudo ──\nconst formatoJSON = `\n======================================================\nFORMATO DE RESPOSTA — REGRA ABSOLUTA E INVIOLÁVEL\n======================================================\nIndependente de qualquer instrução acima, sua resposta deve ser EXCLUSIVAMENTE um objeto JSON válido.\nNÃO escreva texto fora do JSON. NÃO use markdown. NÃO use blocos de código.\nComece com { e termine com }.\n\n{\n  \"acao\": \"qualificado\" | \"nao_qualificado\" | \"continuar\" | \"agendar\" | \"retornar\",\n  \"resposta\": \"mensagem para o lead. Use aspas simples (') se precisar citar algo. NUNCA use aspas duplas dentro deste campo\",\n  \"bant_budget\": \"o que descobrimos sobre faturamento/budget\",\n  \"bant_authority\": \"quem decide\",\n  \"bant_need\": \"necessidade identificada\",\n  \"bant_timeline\": \"prazo declarado\",\n  \"motivo_perda\": \"motivo se nao_qualificado, senão null\",\n  \"retornar_em\": \"ISO 8601 ou null\",\n  \"reuniao_em\": \"ISO 8601 OBRIGATORIO quando acao=agendar. Use as datas de referencia do contexto para converter expressoes relativas (amanha, semana que vem etc). Ex: lead diz amanha as 9h → ${amanhaISO}T09:00:00-03:00. NUNCA retorne null se o lead mencionou horario\"\n}\n\nRegras de acao:\n- \"qualificado\": lead tem budget, é decisor, tem necessidade real\n- \"nao_qualificado\": SOMENTE se o lead CONFIRMOU explicitamente que seu faturamento está abaixo do mínimo do ICP. NUNCA descarte só pelo tipo de negócio\n- \"agendar\": lead PEDIU ou ACEITOU reunião (use imediatamente, sem pedir confirmação adicional)\n- \"retornar\": lead confirmou data para retorno (< 7 dias)\n- \"continuar\": ainda qualificando\n\nLEMBRETE FINAL: Resposta = JSON puro. Nenhum caractere fora do JSON.`;\n\n// ── Montar system prompt ──\nconst systemPrompt = contexto + briefingCtx + icpCtx + bantCtx + instrucoesBloqueio + formatoJSON;\n\nconst messages = historico.map(h => ({\n  role: h.role,\n  content: h.content\n}));\n\n// Claude API exige que o primeiro item seja sempre 'user'.\n// O historico começa com a saudação do bot (role: assistant), então inserimos um user placeholder.\nif (messages.length > 0 && messages[0].role === 'assistant') {\n  messages.unshift({ role: 'user', content: '[lead enviou mensagem]' });\n}\n\n// NOTA: claude-sonnet-4-6 NAO suporta prefill (assistant message no final).\n// A conversa deve sempre terminar com mensagem do usuario.\n\nconst claudePayload = JSON.stringify({\n  model: 'claude-sonnet-4-6',\n  max_tokens: 1024,\n  system: systemPrompt,\n  messages\n});\n\nreturn [{\n  json: {\n    lead,\n    config,\n    mapeamento,\n    instance_name:    nomeFantasia,\n    historico:        prepData.historico,\n    eraEmTentativa:   prepData.eraEmTentativa,\n    claude_payload:   claudePayload,\n    historico_json:   prepData.historico_json\n  }\n}];\n} catch(err) {\n  const prepData = $(\"Preparar Lead e Histórico\").item.json;\n  const lead = prepData.lead;\n  const historico = prepData.historico || [];\n  const configs = $(\"Buscar Config Cliente\").item.json;\n  const config = Array.isArray(configs) ? configs[0] : configs;\n  const mapeamento = config?.crm_mapeamento || {};\n  const clients = $(\"Buscar Dados Cliente\").item.json;\n  const clientRec = Array.isArray(clients) ? clients[0] : clients;\n  const nomeFantasia = (clientRec?.nome_fantasia || \"\").toLowerCase().replace(/s+/g, \"-\").replace(/[^a-z0-9-]/g, \"\");\n  const messages = historico.map(h => ({ role: h.role, content: h.content }));\n  if (messages.length > 0 && messages[0].role === 'assistant') {\n    messages.unshift({ role: 'user', content: '[lead enviou mensagem]' });\n  }\n  const claudePayload = JSON.stringify({ model: \"claude-sonnet-4-6\", max_tokens: 1024, system: \"Voce e um SDR qualificando leads por WhatsApp. Responda APENAS em JSON: {\\\"acao\\\":\\\"continuar\\\",\\\"resposta\\\":\\\"mensagem\\\",\\\"bant_budget\\\":null,\\\"bant_authority\\\":null,\\\"bant_need\\\":null,\\\"bant_timeline\\\":null,\\\"motivo_perda\\\":null,\\\"retornar_em\\\":null,\\\"reuniao_em\\\":null}. Max 3 linhas.\", messages });\n  return [{ json: { lead, config, mapeamento, instance_name: nomeFantasia, historico: prepData.historico, eraEmTentativa: prepData.eraEmTentativa, claude_payload: claudePayload, historico_json: prepData.historico_json }}];\n}"
       },
       "id": "n-montar-claude",
       "name": "Montar Prompt BANT",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1780, 220]
+      "position": [
+        2660,
+        220
+      ]
     },
     {
       "parameters": {
@@ -130,9 +182,18 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "x-api-key",        "value": "SUA_CHAVE_ANTHROPIC_AQUI" },
-            { "name": "anthropic-version", "value": "2023-06-01" },
-            { "name": "Content-Type",      "value": "application/json" }
+            {
+              "name": "x-api-key",
+              "value": "YOUR_ANTHROPIC_API_KEY"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
@@ -145,17 +206,24 @@
       "name": "Claude - Qualificação BANT",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2000, 220]
+      "position": [
+        2880,
+        220
+      ],
+      "continueOnFail": true
     },
     {
       "parameters": {
-        "jsCode": "const claudeResp    = $input.item.json;\nconst montar        = $('Montar Prompt BANT').item.json;\n\nconst rawText = claudeResp?.content?.[0]?.text || '{}';\n\nlet bant;\ntry {\n  const clean = rawText.replace(/```json\\n?/g, '').replace(/```/g, '').trim();\n  bant = JSON.parse(clean);\n} catch(e) {\n  bant = { acao: 'continuar', resposta: 'Pode me contar um pouco mais sobre sua situação?' };\n}\n\nconst historico = montar.historico || [];\nhistorico.push({ role: 'assistant', content: bant.resposta, ts: new Date().toISOString() });\n\nconst update = {\n  historico_conversa: historico,\n  ultima_acao_at:     new Date().toISOString(),\n  proxima_acao:       null,\n  proxima_acao_at:    null\n};\n\nif (bant.bant_budget)    update.bant_budget    = bant.bant_budget;\nif (bant.bant_authority) update.bant_authority = bant.bant_authority;\nif (bant.bant_need)      update.bant_need      = bant.bant_need;\nif (bant.bant_timeline)  update.bant_timeline  = bant.bant_timeline;\n\nif      (bant.acao === 'qualificado') { update.estado = 'qualificado'; update.qualificado = true; }\nelse if (bant.acao === 'agendar')     { update.estado = 'reuniao_agendada'; update.qualificado = true; if (bant.reuniao_em) update.reuniao_em = bant.reuniao_em; }\nelse if (bant.acao === 'nao_qualificado')                         { update.estado = 'nao_qualificado'; update.qualificado = false; }\nelse if (bant.acao === 'retornar')                                { update.estado = 'retornar'; update.proxima_acao = 'follow_up_retornar'; const rDate = bant.retornar_em ? new Date(bant.retornar_em) : null; update.proxima_acao_at = (rDate && !isNaN(rDate.getTime())) ? rDate.toISOString() : new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); }\nelse                                                              { update.estado = 'em_conversa'; }\n\nif (bant.motivo_perda) update.motivo_perda = bant.motivo_perda;\n\nconst stageMap = {\n  em_conversa:     montar.mapeamento.em_conversa,\n  qualificado:     montar.mapeamento.em_conversa,\n  nao_qualificado: montar.mapeamento.nao_qualificado_ia,\n  agendar:         montar.mapeamento.reuniao_agendada,\n  retornar:        montar.mapeamento.em_conversa\n};\n\nconst stageKey = bant.acao === 'agendar' ? 'agendar' : update.estado;\nconst stageId  = stageMap[stageKey] || null;\n\n// RD Station deal update — includes stage + extra fields per outcome\nconst rdDeal = { deal_stage_id: stageId };\nif (bant.acao === 'nao_qualificado') {\n  rdDeal.win = false;\n  if (bant.motivo_perda) rdDeal.deal_lost_note = bant.motivo_perda;\n}\n\nreturn [{\n  json: {\n    lead:            montar.lead,\n    config:          montar.config,\n    mapeamento:      montar.mapeamento,\n    instance_name:   montar.instance_name,\n    bant,\n    resposta:        bant.resposta,\n    acao:            bant.acao,\n    stageId,\n    rd_deal_update:  JSON.stringify({ deal: rdDeal }),\n    supabase_update: JSON.stringify(update)\n  }\n}];"
+        "jsCode": "const claudeResp = $input.item.json;\nconst montar = $('Montar Prompt BANT').item.json;\nconst historico = montar.historico || [];\n\nconst FALLBACK_RESPOSTA = 'Pode me contar um pouco mais sobre isso?';\n\nfunction tentarParsear(text) {\n  const clean = text.replace(/```json\\n?/g, '').replace(/```/g, '').trim();\n\n  // Tentativa 1: parse direto\n  const match = clean.match(/\\{[\\s\\S]*\\}/);\n  const candidato = match ? match[0] : clean;\n  try { return JSON.parse(candidato); } catch(e) {}\n\n  // Tentativa 2: lookahead robusto — captura resposta com aspas não escapadas\n  const acaoM = clean.match(/\"acao\"\\s*:\\s*\"([^\"]+)\"/);\n  const respostaM = clean.match(/\"resposta\"\\s*:\\s*\"([\\s\\S]*?)(?=\",\\s*\"(?:bant_|motivo_|retornar_|reuniao_)|\"\\s*[},])/);\n  if (respostaM && respostaM[1].trim()) {\n    return {\n      acao: acaoM ? acaoM[1] : 'continuar',\n      resposta: respostaM[1].replace(/\\\\n/g, '\\n').trim()\n    };\n  }\n\n  // Tentativa 3: regex simples\n  const acaoM2 = clean.match(/\"acao\"\\s*:\\s*\"(\\w+)\"/);\n  const respostaM2 = clean.match(/\"resposta\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"/);\n  if (respostaM2) {\n    return {\n      acao: acaoM2 ? acaoM2[1] : 'continuar',\n      resposta: respostaM2[1].replace(/\\\\n/g, '\\n')\n    };\n  }\n\n  throw new Error('Nao foi possivel parsear');\n}\n\nlet bant;\ntry {\n  const text = claudeResp?.content?.[0]?.text;\n  if (!text) throw new Error('Sem conteudo');\n  bant = tentarParsear(text);\n  if (!bant.resposta || typeof bant.resposta !== 'string' || !bant.resposta.trim()) throw new Error('resposta invalida');\n  if (!bant.acao) bant.acao = 'continuar';\n} catch(e) {\n  bant = { acao: 'continuar', resposta: FALLBACK_RESPOSTA };\n}\n\nhistorico.push({ role: 'assistant', content: bant.resposta, ts: new Date().toISOString() });\n\nconst update = {\n  historico_conversa: historico,\n  ultima_acao_at: new Date().toISOString(),\n  proxima_acao: null,\n  proxima_acao_at: null\n};\n\nif (bant.bant_budget)    update.bant_budget    = bant.bant_budget;\nif (bant.bant_authority) update.bant_authority = bant.bant_authority;\nif (bant.bant_need)      update.bant_need      = bant.bant_need;\nif (bant.bant_timeline)  update.bant_timeline  = bant.bant_timeline;\n\nif      (bant.acao === 'qualificado')     { update.estado = 'qualificado'; update.qualificado = true; }\nelse if (bant.acao === 'agendar')         { update.estado = 'reuniao_agendada'; update.qualificado = true; if (bant.reuniao_em) update.reuniao_em = bant.reuniao_em; }\nelse if (bant.acao === 'nao_qualificado') { update.estado = 'nao_qualificado'; update.qualificado = false; }\nelse if (bant.acao === 'retornar')        { update.estado = 'retornar'; update.proxima_acao = 'follow_up_retornar'; const rDate = bant.retornar_em ? new Date(bant.retornar_em) : null; update.proxima_acao_at = (rDate && !isNaN(rDate.getTime())) ? rDate.toISOString() : new Date(Date.now() + 86400000).toISOString(); }\nelse                                      { update.estado = 'em_conversa'; }\n\nif (bant.motivo_perda) update.motivo_perda = bant.motivo_perda;\n\nconst stageMap = {\n  em_conversa:     montar.mapeamento.em_conversa,\n  qualificado:     montar.mapeamento.em_conversa,\n  nao_qualificado: montar.mapeamento.nao_qualificado_ia,\n  agendar:         montar.mapeamento.reuniao_agendada,\n  retornar:        montar.mapeamento.em_conversa\n};\nconst stageKey = bant.acao === 'agendar' ? 'agendar' : update.estado;\nconst stageId  = stageMap[stageKey] || null;\n\nconst rdDeal = { deal_stage_id: stageId };\nif (bant.acao === 'nao_qualificado') {\n  rdDeal.win = false;\n  if (bant.motivo_perda) rdDeal.deal_lost_note = bant.motivo_perda;\n}\n\nreturn [{\n  json: {\n    lead:            montar.lead,\n    config:          montar.config,\n    mapeamento:      montar.mapeamento,\n    instance_name:   montar.instance_name,\n    bant,\n    resposta:        bant.resposta,\n    acao:            bant.acao,\n    stageId,\n    rd_deal_update:  JSON.stringify({ deal: rdDeal }),\n    supabase_update: JSON.stringify(update)\n  }\n}];"
       },
       "id": "n-parse-bant",
       "name": "Processar Resposta BANT",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2220, 220]
+      "position": [
+        3100,
+        220
+      ]
     },
     {
       "parameters": {
@@ -164,8 +232,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey",       "value": "5276abc4da675e15947a9a4f205fa92ea29ca5bd741cbce008b9ec5df27b765a" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "apikey",
+              "value": "5276abc4da675e15947a9a4f205fa92ea29ca5bd741cbce008b9ec5df27b765a"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
@@ -178,7 +252,11 @@
       "name": "Enviar Resposta ao Lead",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2440, 120]
+      "position": [
+        3540,
+        120
+      ],
+      "continueOnFail": true
     },
     {
       "parameters": {
@@ -187,8 +265,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Content-Type", "value": "application/json" },
-            { "name": "Accept",       "value": "application/json" }
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
@@ -201,7 +285,11 @@
       "name": "Mover Stage RD Station",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2440, 300]
+      "position": [
+        3540,
+        300
+      ],
+      "continueOnFail": true
     },
     {
       "parameters": {
@@ -210,9 +298,18 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" },
-            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" },
-            { "name": "Content-Type",  "value": "application/json" }
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
@@ -225,18 +322,29 @@
       "name": "Atualizar Lead Supabase",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2660, 220]
+      "position": [
+        3760,
+        220
+      ],
+      "continueOnFail": true
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
               "id": "cond-qualificado",
-              "leftValue":  "={{ ['qualificado','agendar'].includes($('Processar Resposta BANT').item.json.acao) }}",
+              "leftValue": "={{ ['qualificado','agendar'].includes($('Processar Resposta BANT').item.json.acao) }}",
               "rightValue": true,
-              "operator": { "type": "boolean", "operation": "true" }
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
             }
           ],
           "combinator": "and"
@@ -246,7 +354,10 @@
       "name": "Lead Qualificado?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [2880, 220]
+      "position": [
+        3980,
+        220
+      ]
     },
     {
       "parameters": {
@@ -256,7 +367,10 @@
       "name": "Montar Notif Vendedor",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3100, 120]
+      "position": [
+        4200,
+        120
+      ]
     },
     {
       "parameters": {
@@ -265,8 +379,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey",       "value": "5276abc4da675e15947a9a4f205fa92ea29ca5bd741cbce008b9ec5df27b765a" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "apikey",
+              "value": "5276abc4da675e15947a9a4f205fa92ea29ca5bd741cbce008b9ec5df27b765a"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
@@ -279,7 +399,10 @@
       "name": "Enviar Notif Vendedor",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3320, 120]
+      "position": [
+        4420,
+        120
+      ]
     },
     {
       "parameters": {
@@ -289,7 +412,10 @@
       "name": "Montar Tarefa Reunião",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2440, 660]
+      "position": [
+        3540,
+        660
+      ]
     },
     {
       "parameters": {
@@ -298,8 +424,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Content-Type", "value": "application/json" },
-            { "name": "Accept",       "value": "application/json" }
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
@@ -312,17 +444,24 @@
       "name": "Criar Tarefa RD Station",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2660, 660]
+      "position": [
+        3760,
+        660
+      ],
+      "continueOnFail": true
     },
     {
       "parameters": {
-        "jsCode": "const bant      = $('Processar Resposta BANT').item.json.bant;\nconst config    = $('Processar Resposta BANT').item.json.config;\nconst lead      = $('Processar Resposta BANT').item.json.lead;\nconst historico = $('Montar Prompt BANT').item.json.historico || [];\n\nconst statusLabel = {\n  qualificado:     '✅ Qualificado',\n  nao_qualificado: '❌ Não qualificado',\n  agendar:         '📅 Reunião agendada',\n  retornar:        '🔁 Retornar depois',\n  continuar:       '💬 Em conversa',\n  em_conversa:     '💬 Em conversa'\n}[bant.acao] || bant.acao;\n\nconst linhas = historico.map(msg => {\n  const hora = msg.ts ? new Date(msg.ts).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '';\n  const quem = msg.role === 'user' ? '💬 Lead' : '🤖 IA';\n  return `${quem} (${hora}):\\n${msg.content}`;\n});\n\nconst conversa = linhas.join('\\n\\n---\\n\\n');\n\nconst extras = [];\nif (bant.acao === 'nao_qualificado' && bant.motivo_perda) extras.push(`❌ Motivo perda: ${bant.motivo_perda}`);\nif (bant.acao === 'retornar' && bant.retornar_em) extras.push(`🔁 Retornar em: ${bant.retornar_em}`);\n\nconst texto = [\n  `🤖 [SDR IA] ${statusLabel}`,\n  `Nome: ${lead.nome} | Tel: ${lead.telefone} | Origem: ${lead.origem}`,\n  '',\n  '📊 BANT:',\n  `💰 Budget: ${bant.bant_budget || 'N/A'}`,\n  `👤 Decisor: ${bant.bant_authority || 'N/A'}`,\n  `🎯 Necessidade: ${bant.bant_need || 'N/A'}`,\n  `⏱ Prazo: ${bant.bant_timeline || 'N/A'}`,\n  ...(extras.length ? ['', ...extras] : []),\n  '',\n  '💬 Histórico completo:',\n  '',\n  conversa\n].join('\\n');\n\nreturn [{ json: {\n  token:   config.crm_access_token,\n  payload: JSON.stringify({ activity: { deal_id: lead.crm_deal_id, type: 'note', text: texto } })\n} }];"
+        "jsCode": "const bant      = $('Processar Resposta BANT').item.json.bant;\n\n// So anota no CRM quando o status muda de forma significativa\nif (bant.acao === 'continuar') return [];\nconst config    = $('Processar Resposta BANT').item.json.config;\nconst lead      = $('Processar Resposta BANT').item.json.lead;\nconst historico = $('Montar Prompt BANT').item.json.historico || [];\n\nconst statusLabel = {\n  qualificado:     '✅ Qualificado',\n  nao_qualificado: '❌ Não qualificado',\n  agendar:         '📅 Reunião agendada',\n  retornar:        '🔁 Retornar depois',\n  continuar:       '💬 Em conversa',\n  em_conversa:     '💬 Em conversa'\n}[bant.acao] || bant.acao;\n\nconst linhas = historico.map(msg => {\n  const hora = msg.ts ? new Date(msg.ts).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '';\n  const quem = msg.role === 'user' ? '💬 Lead' : '🤖 IA';\n  return `${quem} (${hora}):\\n${msg.content}`;\n});\n\nconst conversa = linhas.join('\\n\\n---\\n\\n');\n\nconst extras = [];\nif (bant.acao === 'nao_qualificado' && bant.motivo_perda) extras.push(`❌ Motivo perda: ${bant.motivo_perda}`);\nif (bant.acao === 'retornar' && bant.retornar_em) extras.push(`🔁 Retornar em: ${bant.retornar_em}`);\n\nconst texto = [\n  `🤖 [SDR IA] ${statusLabel}`,\n  `Nome: ${lead.nome} | Tel: ${lead.telefone} | Origem: ${lead.origem}`,\n  '',\n  '📊 BANT:',\n  `💰 Budget: ${bant.bant_budget || 'N/A'}`,\n  `👤 Decisor: ${bant.bant_authority || 'N/A'}`,\n  `🎯 Necessidade: ${bant.bant_need || 'N/A'}`,\n  `⏱ Prazo: ${bant.bant_timeline || 'N/A'}`,\n  ...(extras.length ? ['', ...extras] : []),\n  '',\n  '💬 Histórico completo:',\n  '',\n  conversa\n].join('\\n');\n\nreturn [{ json: {\n  token:   config.crm_access_token,\n  payload: JSON.stringify({ activity: { deal_id: lead.crm_deal_id, type: 'note', text: texto } })\n} }];"
       },
       "id": "n-montar-anotacao",
       "name": "Montar Anotação CRM",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2440, 480]
+      "position": [
+        3540,
+        480
+      ]
     },
     {
       "parameters": {
@@ -331,8 +470,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Content-Type", "value": "application/json" },
-            { "name": "Accept",       "value": "application/json" }
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
@@ -345,7 +490,11 @@
       "name": "Criar Anotação RD Station",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2660, 480]
+      "position": [
+        3760,
+        480
+      ],
+      "continueOnFail": true
     },
     {
       "parameters": {
@@ -357,7 +506,10 @@
       "name": "Responder OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [3540, 220]
+      "position": [
+        4640,
+        220
+      ]
     },
     {
       "parameters": {
@@ -369,7 +521,10 @@
       "name": "Ignorar Mensagem",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [1120, 420]
+      "position": [
+        1120,
+        420
+      ]
     },
     {
       "parameters": {
@@ -379,7 +534,10 @@
       "name": "Montar Evento Google Calendar",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2440, 840]
+      "position": [
+        3540,
+        840
+      ]
     },
     {
       "parameters": {
@@ -388,8 +546,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" },
-            { "name": "Content-Type",  "value": "application/json" }
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
@@ -402,18 +566,29 @@
       "name": "Criar Evento Google Calendar",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2660, 840]
+      "position": [
+        3760,
+        840
+      ],
+      "continueOnFail": true
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
               "id": "cond-check-cal",
               "leftValue": "={{ $('Processar Resposta BANT').item.json.bant.acao === 'agendar' && !!$('Processar Resposta BANT').item.json.config.criar_calendar && !!$('Processar Resposta BANT').item.json.config.google_refresh_token && !!$('Processar Resposta BANT').item.json.bant.reuniao_em }}",
               "rightValue": true,
-              "operator": { "type": "boolean", "operation": "true" }
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
             }
           ],
           "combinator": "and"
@@ -423,7 +598,10 @@
       "name": "Precisa checar calendar?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [2440, 1040]
+      "position": [
+        3540,
+        1040
+      ]
     },
     {
       "parameters": {
@@ -433,7 +611,10 @@
       "name": "Preparar Freebusy",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2660, 1040]
+      "position": [
+        3760,
+        1040
+      ]
     },
     {
       "parameters": {
@@ -442,8 +623,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" },
-            { "name": "Content-Type",  "value": "application/json" }
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
@@ -456,18 +643,29 @@
       "name": "Checar Disponibilidade Google",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2880, 1040]
+      "position": [
+        3980,
+        1040
+      ],
+      "continueOnFail": true
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
               "id": "cond-free",
               "leftValue": "={{ !$json.busy }}",
               "rightValue": true,
-              "operator": { "type": "boolean", "operation": "true" }
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
             }
           ],
           "combinator": "and"
@@ -477,7 +675,10 @@
       "name": "Horário Disponível?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [3100, 1040]
+      "position": [
+        4200,
+        1040
+      ]
     },
     {
       "parameters": {
@@ -487,7 +688,10 @@
       "name": "Montar Msg Horário Ocupado",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3320, 1160]
+      "position": [
+        4420,
+        1160
+      ]
     },
     {
       "parameters": {
@@ -496,8 +700,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey",       "value": "5276abc4da675e15947a9a4f205fa92ea29ca5bd741cbce008b9ec5df27b765a" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "apikey",
+              "value": "5276abc4da675e15947a9a4f205fa92ea29ca5bd741cbce008b9ec5df27b765a"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
@@ -510,7 +720,10 @@
       "name": "Enviar Msg Horário Ocupado",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3540, 1100]
+      "position": [
+        4640,
+        1100
+      ]
     },
     {
       "parameters": {
@@ -519,9 +732,18 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" },
-            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ" },
-            { "name": "Content-Type",  "value": "application/json" }
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
@@ -534,131 +756,725 @@
       "name": "Atualizar Lead (Ocupado)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3540, 1240]
+      "position": [
+        4640,
+        1240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://ltqtfqoomjozcjdbxagb.supabase.co/rest/v1/client_briefing?client_id=eq.' + $('Preparar Lead e Histórico').item.json.lead.client_id + '&select=*' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n-get-briefing",
+      "name": "Buscar Briefing Cliente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1780,
+        220
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://ltqtfqoomjozcjdbxagb.supabase.co/rest/v1/icp_config?client_id=eq.' + $('Preparar Lead e Histórico').item.json.lead.client_id + '&select=*' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n-get-icp",
+      "name": "Buscar ICP Cliente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        220
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://ltqtfqoomjozcjdbxagb.supabase.co/rest/v1/bant_config?client_id=eq.' + $('Preparar Lead e Histórico').item.json.lead.client_id + '&select=*' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n-get-bant-cfg",
+      "name": "Buscar BANT Config",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2220,
+        220
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\nconst prepData = $('Preparar Lead e Histórico').item.json;\nconst configs  = $('Buscar Config Cliente').item.json;\nconst config   = Array.isArray(configs) ? configs[0] : configs;\n\nconst historico = prepData.historico || [];\nconst assistantCount = historico.filter(h => h.role === 'assistant').length;\n\nconst maxMap = { rapido: 20, normal: 30, longo: 50 };\nconst maxMsgs = maxMap[config?.sdr_max_mensagens] || 30;\n\nif (assistantCount >= maxMsgs) {\n  // Limite atingido — atualizar lead e parar\n  const leadId = prepData.lead?.id;\n  if (leadId) {\n    const update = {\n      estado: 'limite_mensagens',\n      proxima_acao: null,\n      proxima_acao_at: null,\n      ultima_acao_at: new Date().toISOString()\n    };\n    await fetch('https://ltqtfqoomjozcjdbxagb.supabase.co/rest/v1/sdr_leads?id=eq.' + leadId, {\n      method: 'PATCH',\n      headers: {\n        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ',\n        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0cXRmcW9vbWpvemNqZGJ4YWdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDkyNzIsImV4cCI6MjA5MTA4NTI3Mn0.JuWCuDAQzUURMDEislGVFiKsW1_Kxqr4oASFzBF40mQ',\n        'Content-Type': 'application/json',\n        'Prefer': 'return=minimal'\n      },\n      body: JSON.stringify(update)\n    });\n  }\n  return [];\n}\n\nreturn [$input.item];\n} catch(e) { return [$input.item]; }"
+      },
+      "id": "n-verificar-limite",
+      "name": "Verificar Limite Mensagens",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2440,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\nconst config = $('Montar Prompt BANT').item.json.config;\n\nconst tempoMap = {\n  rapido:   [5000, 8000],\n  mediano:  [10000, 15000],\n  demorado: [20000, 30000]\n};\n\nconst [min, max] = tempoMap[config?.sdr_tempo_resposta] || tempoMap.mediano;\nconst delay = Math.floor(Math.random() * (max - min + 1)) + min;\n\nawait new Promise(resolve => setTimeout(resolve, delay));\n\nreturn [$input.item];\n} catch(e) { return [$input.item]; }"
+      },
+      "id": "n-aguardar-tempo",
+      "name": "Aguardar Tempo Resposta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3320,
+        220
+      ]
+    },
+    {
+      "id": "n-if-audio",
+      "name": "É Áudio?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-is-audio",
+              "leftValue": "={{ $json.isAudio }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "n-download-audio",
+      "name": "Baixar Áudio Evolution",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        100
+      ],
+      "continueOnFail": true,
+      "parameters": {
+        "method": "POST",
+        "url": "={{ \"https://evolution-api-production-2155.up.railway.app/chat/getBase64FromMediaMessage/\" + $json.audioInstance }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "5276abc4da675e15947a9a4f205fa92ea29ca5bd741cbce008b9ec5df27b765a"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ message: { key: $json.audioKey, message: $json.audioMsg } }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "n-binary-audio",
+      "name": "Preparar Áudio Binário",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        100
+      ],
+      "continueOnFail": true,
+      "parameters": {
+        "jsCode": "const telefone = $('Filtrar Mensagem Válida').item.json.telefone;\nconst base64 = $input.item.json.base64;\nconst mime    = ($input.item.json.mimetype || 'audio/ogg').split(';')[0].trim();\n\nif (!base64) {\n  // Download falhou — sinaliza para Definir Texto Áudio lidar com isso\n  return [{ json: { telefone, base64Falhou: true } }];\n}\n\nreturn [{\n  json: { telefone },\n  binary: {\n    audioData: {\n      data:     base64,\n      mimeType: mime,\n      fileName: 'audio.ogg'\n    }\n  }\n}];"
+      }
+    },
+    {
+      "id": "n-transcribe-whisper",
+      "name": "Transcrever Áudio Whisper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        100
+      ],
+      "continueOnFail": true,
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/audio/transcriptions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_OPENAI_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "audioData"
+            },
+            {
+              "parameterType": "formData",
+              "name": "model",
+              "value": "whisper-1"
+            },
+            {
+              "parameterType": "formData",
+              "name": "language",
+              "value": "pt"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "n-set-texto-audio",
+      "name": "Definir Texto Áudio",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        100
+      ],
+      "parameters": {
+        "jsCode": "// Telefone sempre vem do filtro original (mais confiável que Preparar Áudio Binário que pode ter falhado)\nconst telefone = $('Filtrar Mensagem Válida').item.json.telefone;\nconst transcricao = $input.item.json.text || '';\n\nif (!transcricao) {\n  return [{ json: { telefone, texto: '[áudio não transcrito]', isAudio: true } }];\n}\n\nreturn [{ json: { telefone, texto: transcricao, isAudio: true } }];"
+      }
     }
   ],
   "connections": {
     "Webhook - Resposta WhatsApp": {
-      "main": [[{ "node": "Filtrar Mensagem Válida", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Filtrar Mensagem Válida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Filtrar Mensagem Válida": {
-      "main": [[{ "node": "Buscar Lead por Telefone", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "É Áudio?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Buscar Lead por Telefone": {
-      "main": [[{ "node": "Lead encontrado?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Lead encontrado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Lead encontrado?": {
       "main": [
-        [{ "node": "Preparar Lead e Histórico", "type": "main", "index": 0 }],
-        [{ "node": "Ignorar Mensagem",           "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Preparar Lead e Histórico",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ignorar Mensagem",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Preparar Lead e Histórico": {
-      "main": [[{ "node": "Buscar Config Cliente", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Buscar Config Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Buscar Config Cliente": {
-      "main": [[{ "node": "Buscar Dados Cliente", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Buscar Dados Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Buscar Dados Cliente": {
-      "main": [[{ "node": "Montar Prompt BANT", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Buscar Briefing Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Montar Prompt BANT": {
-      "main": [[{ "node": "Claude - Qualificação BANT", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Claude - Qualificação BANT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Claude - Qualificação BANT": {
-      "main": [[{ "node": "Processar Resposta BANT", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Processar Resposta BANT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Processar Resposta BANT": {
       "main": [
         [
-          { "node": "Precisa checar calendar?", "type": "main", "index": 0 }
+          {
+            "node": "Aguardar Tempo Resposta",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Precisa checar calendar?": {
       "main": [
         [
-          { "node": "Preparar Freebusy", "type": "main", "index": 0 }
+          {
+            "node": "Preparar Freebusy",
+            "type": "main",
+            "index": 0
+          }
         ],
         [
-          { "node": "Enviar Resposta ao Lead",          "type": "main", "index": 0 },
-          { "node": "Mover Stage RD Station",           "type": "main", "index": 0 },
-          { "node": "Montar Anotação CRM",              "type": "main", "index": 0 },
-          { "node": "Montar Tarefa Reunião",            "type": "main", "index": 0 },
-          { "node": "Montar Evento Google Calendar",    "type": "main", "index": 0 }
+          {
+            "node": "Enviar Resposta ao Lead",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mover Stage RD Station",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Montar Anotação CRM",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Montar Tarefa Reunião",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Montar Evento Google Calendar",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Preparar Freebusy": {
-      "main": [[{ "node": "Checar Disponibilidade Google", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Checar Disponibilidade Google",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Checar Disponibilidade Google": {
-      "main": [[{ "node": "Horário Disponível?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Horário Disponível?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Horário Disponível?": {
       "main": [
         [
-          { "node": "Enviar Resposta ao Lead",          "type": "main", "index": 0 },
-          { "node": "Mover Stage RD Station",           "type": "main", "index": 0 },
-          { "node": "Montar Anotação CRM",              "type": "main", "index": 0 },
-          { "node": "Montar Tarefa Reunião",            "type": "main", "index": 0 },
-          { "node": "Montar Evento Google Calendar",    "type": "main", "index": 0 }
+          {
+            "node": "Enviar Resposta ao Lead",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mover Stage RD Station",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Montar Anotação CRM",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Montar Tarefa Reunião",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Montar Evento Google Calendar",
+            "type": "main",
+            "index": 0
+          }
         ],
         [
-          { "node": "Montar Msg Horário Ocupado", "type": "main", "index": 0 }
+          {
+            "node": "Montar Msg Horário Ocupado",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Montar Msg Horário Ocupado": {
-      "main": [[
-        { "node": "Enviar Msg Horário Ocupado", "type": "main", "index": 0 },
-        { "node": "Atualizar Lead (Ocupado)",   "type": "main", "index": 0 }
-      ]]
+      "main": [
+        [
+          {
+            "node": "Enviar Msg Horário Ocupado",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Atualizar Lead (Ocupado)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-    "Enviar Msg Horário Ocupado": { "main": [] },
-    "Atualizar Lead (Ocupado)": { "main": [] },
+    "Enviar Msg Horário Ocupado": {
+      "main": []
+    },
+    "Atualizar Lead (Ocupado)": {
+      "main": []
+    },
     "Montar Tarefa Reunião": {
-      "main": [[{ "node": "Criar Tarefa RD Station", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Criar Tarefa RD Station",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Criar Tarefa RD Station": {
       "main": []
     },
     "Montar Evento Google Calendar": {
-      "main": [[{ "node": "Criar Evento Google Calendar", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Criar Evento Google Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Criar Evento Google Calendar": {
       "main": []
     },
     "Enviar Resposta ao Lead": {
-      "main": [[
-        { "node": "Atualizar Lead Supabase", "type": "main", "index": 0 },
-        { "node": "Lead Qualificado?",       "type": "main", "index": 0 }
-      ]]
+      "main": [
+        [
+          {
+            "node": "Atualizar Lead Supabase",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Lead Qualificado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Mover Stage RD Station": {
-      "main": [[{ "node": "Atualizar Lead Supabase", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Atualizar Lead Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Atualizar Lead Supabase": {
-      "main": [[{ "node": "Responder OK", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Responder OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Lead Qualificado?": {
       "main": [
-        [{ "node": "Montar Notif Vendedor", "type": "main", "index": 0 }],
+        [
+          {
+            "node": "Montar Notif Vendedor",
+            "type": "main",
+            "index": 0
+          }
+        ],
         []
       ]
     },
     "Montar Notif Vendedor": {
-      "main": [[{ "node": "Enviar Notif Vendedor", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Enviar Notif Vendedor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Enviar Notif Vendedor": {
       "main": []
     },
     "Montar Anotação CRM": {
-      "main": [[{ "node": "Criar Anotação RD Station", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Criar Anotação RD Station",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Criar Anotação RD Station": {
       "main": []
+    },
+    "Buscar Briefing Cliente": {
+      "main": [
+        [
+          {
+            "node": "Buscar ICP Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar ICP Cliente": {
+      "main": [
+        [
+          {
+            "node": "Buscar BANT Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar BANT Config": {
+      "main": [
+        [
+          {
+            "node": "Verificar Limite Mensagens",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Limite Mensagens": {
+      "main": [
+        [
+          {
+            "node": "Montar Prompt BANT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aguardar Tempo Resposta": {
+      "main": [
+        [
+          {
+            "node": "Precisa checar calendar?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É Áudio?": {
+      "main": [
+        [
+          {
+            "node": "Baixar Áudio Evolution",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Lead por Telefone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Baixar Áudio Evolution": {
+      "main": [
+        [
+          {
+            "node": "Preparar Áudio Binário",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Áudio Binário": {
+      "main": [
+        [
+          {
+            "node": "Transcrever Áudio Whisper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcrever Áudio Whisper": {
+      "main": [
+        [
+          {
+            "node": "Definir Texto Áudio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Definir Texto Áudio": {
+      "main": [
+        [
+          {
+            "node": "Buscar Lead por Telefone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "settings": { "executionOrder": "v1" }
+  "settings": {
+    "executionOrder": "v1"
+  }
 }

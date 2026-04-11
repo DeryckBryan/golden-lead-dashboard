@@ -11,12 +11,11 @@ import { WhatsAppTab } from "@/components/tabs/WhatsAppTab";
 import { CadenciaTab } from "@/components/tabs/CadenciaTab";
 import { AcoesTab } from "@/components/tabs/AcoesTab";
 import { LeadsTab } from "@/components/tabs/LeadsTab";
-import { ConversasTab } from "@/components/tabs/ConversasTab";
 import { cn } from "@/lib/utils";
 import {
   Sun, Moon, Menu, X,
   User, FileText, Target, BarChart2,
-  MessageCircle, GitBranch, Zap, Users, MessageSquare,
+  MessageCircle, GitBranch, Zap, Users,
   LayoutDashboard,
 } from "lucide-react";
 
@@ -29,7 +28,6 @@ const tabs = [
   { label: "Cadência",      icon: GitBranch },
   { label: "Ações",         icon: Zap },
   { label: "Leads",         icon: Users },
-  { label: "Conversas",     icon: MessageSquare },
 ];
 
 const Admin: React.FC = () => {
@@ -49,7 +47,6 @@ const Admin: React.FC = () => {
       case 5: return <CadenciaTab client={selectedClient} />;
       case 6: return <AcoesTab client={selectedClient} />;
       case 7: return <LeadsTab client={selectedClient} />;
-      case 8: return <ConversasTab client={selectedClient} />;
       default: return null;
     }
   };

@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local Netlify folder
+.netlify
+
+# Workflows n8n contêm chaves de API — não commitar
+n8n-workflows/

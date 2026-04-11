@@ -116,6 +116,8 @@ export const AcoesTab: React.FC<Props> = ({ client }) => {
 
   // SDR IA
   const [sdrInstrucoes, setSdrInstrucoes] = useState("");
+  const [sdrTempoResposta, setSdrTempoResposta] = useState("mediano");
+  const [sdrMaxMensagens, setSdrMaxMensagens] = useState("normal");
 
   // Google Calendar
   const [googleConnected, setGoogleConnected] = useState(false);
@@ -212,6 +214,8 @@ export const AcoesTab: React.FC<Props> = ({ client }) => {
         setCrmMap(data.crm_mapeamento ?? {});
         setGoogleConnected(!!data.google_refresh_token);
         setSdrInstrucoes(data.sdr_instrucoes ?? "");
+        setSdrTempoResposta(data.sdr_tempo_resposta ?? "mediano");
+        setSdrMaxMensagens(data.sdr_max_mensagens ?? "normal");
 
         // Auto-connect silently se já tem token salvo
         if (data.crm && data.crm !== "nenhum" && data.crm_access_token) {
@@ -312,6 +316,8 @@ export const AcoesTab: React.FC<Props> = ({ client }) => {
       crm_pipeline_id: pipelineId,
       crm_mapeamento: crmMap,
       sdr_instrucoes: sdrInstrucoes || null,
+      sdr_tempo_resposta: sdrTempoResposta,
+      sdr_max_mensagens: sdrMaxMensagens,
     };
 
     const { error } = await supabase.from("client_actions").upsert(payload, { onConflict: "client_id" });
@@ -364,6 +370,68 @@ export const AcoesTab: React.FC<Props> = ({ client }) => {
           placeholder={`Exemplos:\n- Somos uma consultoria de marketing digital focada em PMEs do setor de saúde\n- Reuniões disponíveis de segunda a sexta, das 9h às 18h (horário de Brasília)\n- Nunca ofereça desconto sem aprovação do comercial\n- Se o lead mencionar concorrente X, destaque nosso diferencial Y\n- Ticket médio entre R$3.000 e R$10.000/mês`}
           className="w-full rounded-lg bg-secondary border border-input text-foreground font-body text-sm p-3 resize-none focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
+
+        {/* Tempo de resposta */}
+        <div className="mt-5">
+          <label className="text-sm text-foreground font-body font-medium block mb-1">
+            Tempo de resposta por mensagem <span className="text-red-400">*</span>
+          </label>
+          <p className="text-xs text-muted-foreground font-body mb-2">
+            Simula o tempo de digitação humana antes de enviar cada resposta.
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { value: "rapido", label: "Rapido", desc: "5 a 8 segundos" },
+              { value: "mediano", label: "Mediano", desc: "10 a 15 segundos" },
+              { value: "demorado", label: "Demorado", desc: "20 a 30 segundos" },
+            ].map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setSdrTempoResposta(opt.value)}
+                className={`rounded-lg border p-3 text-left transition-all ${
+                  sdrTempoResposta === opt.value
+                    ? "border-primary bg-primary/10 ring-1 ring-primary"
+                    : "border-input bg-secondary hover:border-primary/50"
+                }`}
+              >
+                <div className="text-sm font-medium text-foreground">{opt.label}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{opt.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Volume de resposta (limite mensagens) */}
+        <div className="mt-5">
+          <label className="text-sm text-foreground font-body font-medium block mb-1">
+            Volume de resposta por lead <span className="text-red-400">*</span>
+          </label>
+          <p className="text-xs text-muted-foreground font-body mb-2">
+            Limite de mensagens do SDR por lead. Protege contra prompt injection e tokens desnecessarios.
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { value: "rapido", label: "BANT Rapido", desc: "Ate 20 mensagens" },
+              { value: "normal", label: "BANT Normal", desc: "Ate 30 mensagens" },
+              { value: "longo", label: "BANT Longo", desc: "Ate 50 mensagens" },
+            ].map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setSdrMaxMensagens(opt.value)}
+                className={`rounded-lg border p-3 text-left transition-all ${
+                  sdrMaxMensagens === opt.value
+                    ? "border-primary bg-primary/10 ring-1 ring-primary"
+                    : "border-input bg-secondary hover:border-primary/50"
+                }`}
+              >
+                <div className="text-sm font-medium text-foreground">{opt.label}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{opt.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       <Section title="Quando lead QUALIFICADO">
