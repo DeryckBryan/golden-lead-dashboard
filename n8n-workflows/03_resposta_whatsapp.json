@@ -234,7 +234,7 @@
           "parameters": [
             {
               "name": "apikey",
-              "value": "5276abc4da675e15947a9a4f205fa92ea29ca5bd741cbce008b9ec5df27b765a"
+              "value": "YOUR_EVOLUTION_API_KEY"
             },
             {
               "name": "Content-Type",
@@ -381,7 +381,7 @@
           "parameters": [
             {
               "name": "apikey",
-              "value": "5276abc4da675e15947a9a4f205fa92ea29ca5bd741cbce008b9ec5df27b765a"
+              "value": "YOUR_EVOLUTION_API_KEY"
             },
             {
               "name": "Content-Type",
@@ -702,7 +702,7 @@
           "parameters": [
             {
               "name": "apikey",
-              "value": "5276abc4da675e15947a9a4f205fa92ea29ca5bd741cbce008b9ec5df27b765a"
+              "value": "YOUR_EVOLUTION_API_KEY"
             },
             {
               "name": "Content-Type",
@@ -923,7 +923,7 @@
           "parameters": [
             {
               "name": "apikey",
-              "value": "5276abc4da675e15947a9a4f205fa92ea29ca5bd741cbce008b9ec5df27b765a"
+              "value": "YOUR_EVOLUTION_API_KEY"
             },
             {
               "name": "Content-Type",
