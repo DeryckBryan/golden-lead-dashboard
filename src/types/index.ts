@@ -57,5 +57,24 @@ export interface CadenceStep {
   template: string;
 }
 
+export interface SdrLead {
+  id: string;
+  client_id: string;
+  nome: string;
+  telefone: string;
+  email?: string;
+  origem?: string;
+  estado: string;
+  historico_conversa: unknown[];
+  created_at: string;
+  qualificado?: boolean;
+  reuniao_em?: string;
+  motivo_perda?: string;
+  bant_budget?: string;
+  bant_authority?: string;
+  bant_need?: string;
+  bant_timeline?: string;
+}
+
 export type ClientStatus = Client["status"];
 export type LeadStatus = Lead["status"];

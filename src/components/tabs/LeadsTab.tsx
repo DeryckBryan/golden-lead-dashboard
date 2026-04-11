@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from "react";
-import { Client, Lead } from "@/types";
+import React, { useState, useEffect, useCallback } from "react";
+import { Client, Lead, SdrLead } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LeadStatusBadge } from "@/components/LeadStatusBadge";
 import { toast } from "sonner";
-import { Plus, ChevronRight, Loader2 } from "lucide-react";
+import { Plus, ChevronRight, Loader2, Trash2, MessageSquare } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/lib/supabase";
@@ -27,6 +27,14 @@ const statusOptions = [
   { value: "nao_respondeu", label: "Não Respondeu" },
 ];
 
+const maskPhone = (raw: string) => {
+  const d = raw.replace(/\D/g, "").slice(0, 13);
+  if (d.length <= 2) return d;
+  if (d.length <= 4) return `${d.slice(0, 2)} (${d.slice(2)}`;
+  if (d.length <= 9) return `${d.slice(0, 2)} (${d.slice(2, 4)}) ${d.slice(4)}`;
+  return `${d.slice(0, 2)} (${d.slice(2, 4)}) ${d.slice(4, 9)}-${d.slice(9)}`;
+};
+
 const emptyLead = (clientId: string): Omit<Lead, "id" | "created_at"> => ({
   client_id: clientId,
   nome: "",
@@ -37,7 +45,21 @@ const emptyLead = (clientId: string): Omit<Lead, "id" | "created_at"> => ({
   bant_score: 0,
   status: "novo",
   origem: "",
+  telefone: "",
 });
+
+const sdrEstadoLabel: Record<string, { label: string; color: string }> = {
+  tentativa_1:      { label: "Tentativa 1",       color: "text-yellow-400" },
+  tentativa_2:      { label: "Tentativa 2",       color: "text-yellow-500" },
+  tentativa_3:      { label: "Tentativa 3",       color: "text-orange-400" },
+  em_conversa:      { label: "Em conversa",       color: "text-blue-400" },
+  qualificado:      { label: "Qualificado",       color: "text-green-400" },
+  nao_qualificado:  { label: "Não qualificado",   color: "text-red-400" },
+  reuniao_agendada: { label: "Reunião agendada",  color: "text-emerald-400" },
+  retornar:         { label: "Retornar",          color: "text-purple-400" },
+  descartado:       { label: "Descartado",        color: "text-gray-400" },
+  limite_mensagens: { label: "Limite atingido",   color: "text-orange-500" },
+};
 
 export const LeadsTab: React.FC<Props> = ({ client }) => {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -48,6 +70,11 @@ export const LeadsTab: React.FC<Props> = ({ client }) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newLead, setNewLead] = useState(emptyLead(client.id));
   const [saving, setSaving] = useState(false);
+
+  // SDR Leads state
+  const [sdrLeads, setSdrLeads] = useState<SdrLead[]>([]);
+  const [sdrLoading, setSdrLoading] = useState(true);
+  const [clearingId, setClearingId] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -63,6 +90,51 @@ export const LeadsTab: React.FC<Props> = ({ client }) => {
     };
     load();
   }, [client.id]);
+
+  const loadSdrLeads = useCallback(async () => {
+    setSdrLoading(true);
+    const { data, error } = await supabase
+      .from("sdr_leads")
+      .select("id,client_id,nome,telefone,email,origem,estado,historico_conversa,created_at,qualificado,reuniao_em,motivo_perda")
+      .eq("client_id", client.id)
+      .order("created_at", { ascending: false });
+    if (error) toast.error("Erro ao carregar leads SDR");
+    else setSdrLeads(data ?? []);
+    setSdrLoading(false);
+  }, [client.id]);
+
+  useEffect(() => { loadSdrLeads(); }, [loadSdrLeads]);
+
+  const limparHistorico = async (sdrLead: SdrLead) => {
+    setClearingId(sdrLead.id);
+    const { error } = await supabase
+      .from("sdr_leads")
+      .update({
+        historico_conversa: [],
+        estado: "tentativa_1",
+        proxima_acao: null,
+        proxima_acao_at: null,
+        bant_budget: null,
+        bant_authority: null,
+        bant_need: null,
+        bant_timeline: null,
+        qualificado: false,
+        reuniao_em: null,
+        motivo_perda: null,
+      })
+      .eq("id", sdrLead.id);
+    if (error) {
+      toast.error("Erro ao limpar histórico: " + error.message);
+    } else {
+      toast.success(`Histórico de ${sdrLead.nome} limpo com sucesso`);
+      setSdrLeads(prev => prev.map(l =>
+        l.id === sdrLead.id
+          ? { ...l, historico_conversa: [], estado: "tentativa_1", qualificado: false, reuniao_em: undefined, motivo_perda: undefined }
+          : l
+      ));
+    }
+    setClearingId(null);
+  };
 
   const filtered = leads.filter(l => {
     if (filterStatus && l.status !== filterStatus) return false;
@@ -221,6 +293,12 @@ export const LeadsTab: React.FC<Props> = ({ client }) => {
                 <span className="text-muted-foreground">Origem:</span>
                 <span className="text-foreground">{selectedLead.origem || "—"}</span>
               </div>
+              {selectedLead.telefone && (
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Telefone:</span>
+                  <span className="text-foreground font-mono">{maskPhone(selectedLead.telefone)}</span>
+                </div>
+              )}
               {selectedLead.link_crm && (
                 <a href={selectedLead.link_crm} target="_blank" rel="noopener noreferrer" className="text-primary underline text-sm">
                   Ver no CRM
@@ -230,6 +308,77 @@ export const LeadsTab: React.FC<Props> = ({ client }) => {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* SDR Leads (WhatsApp) */}
+      <div className="mt-8">
+        <div className="flex items-center gap-2 mb-4">
+          <MessageSquare className="h-5 w-5 text-primary" />
+          <h2 className="font-heading text-foreground text-lg">Leads SDR (WhatsApp)</h2>
+          <span className="text-muted-foreground text-sm font-body">— {sdrLeads.length} registro{sdrLeads.length !== 1 ? "s" : ""}</span>
+        </div>
+
+        {sdrLoading ? (
+          <div className="flex items-center justify-center p-8">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          </div>
+        ) : (
+          <div className="bg-card rounded-lg shadow-card border border-border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm font-body">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left p-3 text-muted-foreground font-medium">Nome</th>
+                    <th className="text-left p-3 text-muted-foreground font-medium">Telefone</th>
+                    <th className="text-left p-3 text-muted-foreground font-medium">Origem</th>
+                    <th className="text-left p-3 text-muted-foreground font-medium">Estado</th>
+                    <th className="text-center p-3 text-muted-foreground font-medium">Msgs</th>
+                    <th className="text-left p-3 text-muted-foreground font-medium">Cadastro</th>
+                    <th className="p-3"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sdrLeads.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center p-8 text-muted-foreground">
+                        Nenhum lead SDR ainda. Os leads chegam via webhook do n8n.
+                      </td>
+                    </tr>
+                  ) : sdrLeads.map(lead => {
+                    const estado = sdrEstadoLabel[lead.estado] ?? { label: lead.estado, color: "text-muted-foreground" };
+                    const msgCount = Array.isArray(lead.historico_conversa) ? lead.historico_conversa.length : 0;
+                    return (
+                      <tr key={lead.id} className="border-b border-border hover:bg-accent/30 transition-colors">
+                        <td className="p-3 text-foreground font-medium">{lead.nome}</td>
+                        <td className="p-3 text-muted-foreground font-mono text-xs">{maskPhone(lead.telefone)}</td>
+                        <td className="p-3 text-muted-foreground">{lead.origem || "—"}</td>
+                        <td className="p-3">
+                          <span className={`font-medium ${estado.color}`}>{estado.label}</span>
+                        </td>
+                        <td className="p-3 text-center text-muted-foreground">{msgCount}</td>
+                        <td className="p-3 text-muted-foreground">{new Date(lead.created_at).toLocaleDateString("pt-BR")}</td>
+                        <td className="p-3">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="font-body text-xs gap-1 border-destructive/40 text-destructive hover:bg-destructive/10"
+                            disabled={clearingId === lead.id}
+                            onClick={() => limparHistorico(lead)}
+                          >
+                            {clearingId === lead.id
+                              ? <Loader2 className="h-3 w-3 animate-spin" />
+                              : <Trash2 className="h-3 w-3" />}
+                            Limpar histórico
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Adicionar lead manual */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -249,6 +398,16 @@ export const LeadsTab: React.FC<Props> = ({ client }) => {
             <div>
               <label className="text-sm text-muted-foreground font-body mb-1 block">Cargo</label>
               <Input value={newLead.cargo} onChange={e => setNewLead({ ...newLead, cargo: e.target.value })} className="bg-secondary border-input" />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground font-body mb-1 block">Telefone (WhatsApp)</label>
+              <Input
+                value={maskPhone(newLead.telefone ?? "")}
+                onChange={e => setNewLead({ ...newLead, telefone: e.target.value.replace(/\D/g, "").slice(0, 13) })}
+                placeholder="55 (11) 99999-9999"
+                inputMode="numeric"
+                className="bg-secondary border-input"
+              />
             </div>
             <div>
               <label className="text-sm text-muted-foreground font-body mb-1 block">Origem</label>
