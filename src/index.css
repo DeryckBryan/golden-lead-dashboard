@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,85 +6,85 @@
 
 @layer base {
   :root {
-    --background: 0 0% 96%;
-    --foreground: 30 25% 14%;
+    --background: 220 20% 97%;
+    --foreground: 224 30% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 30 25% 14%;
+    --card-foreground: 224 30% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 30 25% 14%;
-    --primary: 43 72% 35%;
+    --popover-foreground: 224 30% 12%;
+    --primary: 43 72% 38%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 38 18% 90%;
-    --secondary-foreground: 43 72% 35%;
-    --muted: 38 18% 90%;
-    --muted-foreground: 30 25% 14% / 0.6;
-    --accent: 43 72% 35% / 0.1;
-    --accent-foreground: 43 72% 35%;
-    --destructive: 0 72% 51%;
+    --secondary: 220 15% 93%;
+    --secondary-foreground: 224 30% 12%;
+    --muted: 220 15% 93%;
+    --muted-foreground: 220 10% 50%;
+    --accent: 43 72% 38% / 0.08;
+    --accent-foreground: 43 72% 32%;
+    --destructive: 0 84% 57%;
     --destructive-foreground: 0 0% 100%;
-    --border: 43 72% 35% / 0.2;
-    --input: 43 72% 35% / 0.3;
-    --ring: 43 72% 35%;
-    --radius: 0.625rem;
+    --border: 220 14% 89%;
+    --input: 220 14% 85%;
+    --ring: 43 72% 38%;
+    --radius: 0.875rem;
 
-    --gold: 43 72% 35%;
-    --gold-hover: 43 72% 28%;
+    --gold: 43 72% 38%;
     --surface: 0 0% 100%;
-    --surface-secondary: 38 18% 90%;
-    --sidebar-bg: 38 18% 90%;
-    --separator: 43 72% 35% / 0.15;
-    --shadow-color: 0 0% 0% / 0.08;
+    --surface-secondary: 220 15% 93%;
+    --shadow-sm: 220 20% 12% / 0.04;
+    --shadow-md: 220 20% 12% / 0.08;
+    --shadow-lg: 220 20% 12% / 0.12;
 
-    --status-active: 142 71% 29%;
-    --status-active-bg: 142 71% 29% / 0.1;
-    --status-configuring: 43 72% 35%;
-    --status-configuring-bg: 43 72% 35% / 0.1;
-    --status-pending: 30 25% 14% / 0.5;
-    --status-pending-bg: 30 25% 14% / 0.05;
-    --status-paused: 0 84% 51%;
-    --status-paused-bg: 0 84% 51% / 0.1;
+    --status-active: 142 60% 32%;
+    --status-active-bg: 142 60% 32% / 0.1;
+    --status-configuring: 43 72% 38%;
+    --status-configuring-bg: 43 72% 38% / 0.1;
+    --status-pending: 220 10% 55%;
+    --status-pending-bg: 220 10% 55% / 0.08;
+    --status-paused: 0 78% 55%;
+    --status-paused-bg: 0 78% 55% / 0.1;
 
-    --font-heading: 'Playfair Display', serif;
-    --font-body: 'DM Sans', sans-serif;
+    --font-heading: 'Instrument Serif', serif;
+    --font-body: 'Plus Jakarta Sans', sans-serif;
+
+    --sidebar-width: 260px;
   }
 
   .dark {
-    --background: 0 0% 4%;
-    --foreground: 32 30% 87%;
-    --card: 0 0% 7%;
-    --card-foreground: 32 30% 87%;
-    --popover: 0 0% 7%;
-    --popover-foreground: 32 30% 87%;
-    --primary: 43 59% 52%;
-    --primary-foreground: 0 0% 4%;
-    --secondary: 0 0% 10%;
-    --secondary-foreground: 43 59% 52%;
-    --muted: 0 0% 10%;
-    --muted-foreground: 32 30% 87% / 0.6;
-    --accent: 43 59% 52% / 0.1;
-    --accent-foreground: 43 59% 52%;
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 32 30% 87%;
-    --border: 43 59% 52% / 0.15;
-    --input: 43 59% 52% / 0.2;
-    --ring: 43 59% 52%;
+    --background: 224 28% 8%;
+    --foreground: 220 18% 88%;
+    --card: 224 25% 11%;
+    --card-foreground: 220 18% 88%;
+    --popover: 224 25% 11%;
+    --popover-foreground: 220 18% 88%;
+    --primary: 43 65% 52%;
+    --primary-foreground: 224 28% 8%;
+    --secondary: 224 22% 15%;
+    --secondary-foreground: 220 18% 88%;
+    --muted: 224 22% 15%;
+    --muted-foreground: 220 10% 55%;
+    --accent: 43 65% 52% / 0.1;
+    --accent-foreground: 43 65% 60%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 220 18% 88%;
+    --border: 224 18% 18%;
+    --input: 224 18% 20%;
+    --ring: 43 65% 52%;
 
-    --gold: 43 59% 52%;
-    --gold-hover: 43 59% 52% / 0.8;
-    --surface: 0 0% 7%;
-    --surface-secondary: 0 0% 10%;
-    --sidebar-bg: 0 0% 7%;
-    --separator: 43 59% 52% / 0.1;
-    --shadow-color: 0 0% 0% / 0.4;
+    --gold: 43 65% 52%;
+    --surface: 224 25% 11%;
+    --surface-secondary: 224 22% 15%;
+    --shadow-sm: 0 0% 0% / 0.2;
+    --shadow-md: 0 0% 0% / 0.3;
+    --shadow-lg: 0 0% 0% / 0.4;
 
-    --status-active: 142 71% 45%;
-    --status-active-bg: 142 71% 45% / 0.1;
-    --status-configuring: 43 59% 52%;
-    --status-configuring-bg: 43 59% 52% / 0.1;
-    --status-pending: 32 30% 87% / 0.5;
-    --status-pending-bg: 32 30% 87% / 0.05;
-    --status-paused: 0 84% 60%;
-    --status-paused-bg: 0 84% 60% / 0.1;
+    --status-active: 142 60% 45%;
+    --status-active-bg: 142 60% 45% / 0.1;
+    --status-configuring: 43 65% 52%;
+    --status-configuring-bg: 43 65% 52% / 0.1;
+    --status-pending: 220 10% 55%;
+    --status-pending-bg: 220 10% 55% / 0.08;
+    --status-paused: 0 78% 60%;
+    --status-paused-bg: 0 78% 60% / 0.1;
   }
 }
 
@@ -93,7 +93,8 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-body antialiased;
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-body);
   }
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
@@ -109,27 +110,25 @@
   }
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--gold) / 0.3);
-  border-radius: 3px;
+  background: hsl(var(--gold) / 0.25);
+  border-radius: 99px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--gold) / 0.5);
+  background: hsl(var(--gold) / 0.45);
 }
 
 /* Animations */
 @keyframes fade-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-.animate-fade-in {
-  animation: fade-in 0.3s ease-out;
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
 }
+.animate-fade-in  { animation: fade-in  0.25s ease-out; }
+.animate-slide-in { animation: slide-in 0.2s  ease-out; }

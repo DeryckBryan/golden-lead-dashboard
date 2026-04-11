@@ -13,10 +13,23 @@ import { AcoesTab } from "@/components/tabs/AcoesTab";
 import { LeadsTab } from "@/components/tabs/LeadsTab";
 import { ConversasTab } from "@/components/tabs/ConversasTab";
 import { cn } from "@/lib/utils";
-import { Sun, Moon, Menu, X, Briefcase } from "lucide-react";
+import {
+  Sun, Moon, Menu, X,
+  User, FileText, Target, BarChart2,
+  MessageCircle, GitBranch, Zap, Users, MessageSquare,
+  LayoutDashboard,
+} from "lucide-react";
 
 const tabs = [
-  "Identificação", "Briefing", "ICP", "BANT", "WhatsApp", "Cadência", "Ações", "Leads", "Conversas"
+  { label: "Identificação", icon: User },
+  { label: "Briefing",      icon: FileText },
+  { label: "ICP",           icon: Target },
+  { label: "BANT",          icon: BarChart2 },
+  { label: "WhatsApp",      icon: MessageCircle },
+  { label: "Cadência",      icon: GitBranch },
+  { label: "Ações",         icon: Zap },
+  { label: "Leads",         icon: Users },
+  { label: "Conversas",     icon: MessageSquare },
 ];
 
 const Admin: React.FC = () => {
@@ -43,77 +56,118 @@ const Admin: React.FC = () => {
 
   return (
     <div className="min-h-screen flex bg-background">
-      {/* Mobile sidebar overlay */}
+
+      {/* Mobile overlay */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
-          <div className="absolute left-0 top-0 bottom-0 w-[280px] z-50">
-            <ClientSidebar selectedClient={selectedClient} onSelectClient={c => { setSelectedClient(c); setSidebarOpen(false); setActiveTab(0); }} />
+        <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setSidebarOpen(false)}>
+          <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
+          <div className="absolute left-0 top-0 bottom-0 w-[260px] z-50" onClick={e => e.stopPropagation()}>
+            <ClientSidebar
+              selectedClient={selectedClient}
+              onSelectClient={c => { setSelectedClient(c); setSidebarOpen(false); setActiveTab(0); }}
+            />
           </div>
         </div>
       )}
 
       {/* Desktop sidebar */}
-      <div className="hidden lg:block w-[280px] shrink-0 border-r border-border">
-        <ClientSidebar selectedClient={selectedClient} onSelectClient={c => { setSelectedClient(c); setActiveTab(0); }} />
+      <div className="hidden lg:block w-[260px] shrink-0">
+        <ClientSidebar
+          selectedClient={selectedClient}
+          onSelectClient={c => { setSelectedClient(c); setActiveTab(0); }}
+        />
       </div>
 
-      {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* Main content */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+
         {/* Top bar */}
-        <div className="h-14 flex items-center justify-between px-4 lg:px-6 border-b border-border shrink-0">
+        <header className="h-14 flex items-center justify-between px-4 lg:px-6 border-b border-border bg-card/60 backdrop-blur-md sticky top-0 z-30">
           <div className="flex items-center gap-3">
-            <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-1.5 rounded-lg hover:bg-accent transition-colors">
-              <Menu className="h-5 w-5 text-foreground" />
+            {/* Mobile menu */}
+            <button
+              onClick={() => setSidebarOpen(v => !v)}
+              className="lg:hidden p-2 rounded-xl hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+            >
+              {sidebarOpen ? <X className="h-4.5 w-4.5" /> : <Menu className="h-4.5 w-4.5" />}
             </button>
+
             {selectedClient ? (
-              <div className="flex items-center gap-3">
-                <h1 className="font-heading text-lg font-bold text-foreground">{selectedClient.nome_fantasia}</h1>
+              <div className="flex items-center gap-2.5 animate-slide-in">
+                <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                  {(selectedClient.nome_fantasia || selectedClient.razao_social || "?")
+                    .split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase()}
+                </div>
+                <span className="font-semibold text-foreground text-sm">
+                  {selectedClient.nome_fantasia || selectedClient.razao_social}
+                </span>
                 <StatusBadge status={selectedClient.status} />
               </div>
             ) : (
-              <h1 className="font-heading text-lg font-bold text-foreground">SDR Admin</h1>
+              <span className="font-semibold text-foreground text-sm">SDR Admin</span>
             )}
           </div>
-          <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-accent transition-colors">
-            {theme === "dark" ? <Sun className="h-5 w-5 text-accent-foreground" /> : <Moon className="h-5 w-5 text-accent-foreground" />}
+
+          {/* Theme toggle */}
+          <button
+            onClick={toggleTheme}
+            className="relative w-14 h-7 rounded-full border border-border bg-secondary flex items-center transition-colors hover:border-primary/30"
+            title={theme === "dark" ? "Modo claro" : "Modo escuro"}
+          >
+            <span className={cn(
+              "absolute flex items-center justify-center w-5 h-5 rounded-full bg-card shadow-sm transition-all duration-300",
+              theme === "dark" ? "left-1" : "left-8"
+            )}>
+              {theme === "dark"
+                ? <Moon className="h-3 w-3 text-primary" />
+                : <Sun className="h-3 w-3 text-primary" />
+              }
+            </span>
+            <Sun className={cn("absolute left-8 h-3 w-3 transition-opacity", theme === "dark" ? "opacity-30 text-muted-foreground" : "opacity-0")} />
+            <Moon className={cn("absolute left-2 h-3 w-3 transition-opacity", theme === "dark" ? "opacity-0" : "opacity-30 text-muted-foreground")} />
           </button>
-        </div>
+        </header>
 
         {/* Content */}
         {selectedClient ? (
           <div className="flex-1 flex flex-col min-h-0">
-            {/* Tabs */}
-            <div className="border-b border-border overflow-x-auto shrink-0">
-              <div className="flex px-4 lg:px-6">
-                {tabs.map((tab, i) => (
+            {/* Tab bar */}
+            <div className="px-4 lg:px-6 pt-4 pb-0 border-b border-border bg-card/40 sticky top-14 z-20">
+              <div className="flex gap-1 overflow-x-auto pb-0 scrollbar-none">
+                {tabs.map(({ label, icon: Icon }, i) => (
                   <button
-                    key={tab}
+                    key={label}
                     onClick={() => setActiveTab(i)}
                     className={cn(
-                      "px-4 py-3 text-sm font-body font-medium whitespace-nowrap transition-colors border-b-2 -mb-px",
+                      "flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium whitespace-nowrap rounded-t-xl border-b-2 transition-all",
                       activeTab === i
-                        ? "text-primary border-primary"
-                        : "text-muted-foreground border-transparent hover:text-foreground"
+                        ? "text-primary border-primary bg-primary/5"
+                        : "text-muted-foreground border-transparent hover:text-foreground hover:bg-secondary/60"
                     )}
                   >
-                    {tab}
+                    <Icon className="h-3.5 w-3.5 shrink-0" />
+                    {label}
                   </button>
                 ))}
               </div>
             </div>
 
             {/* Tab content */}
-            <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+            <div className="flex-1 overflow-y-auto p-4 lg:p-6 animate-fade-in">
               {renderTab()}
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center animate-fade-in">
-              <Briefcase className="h-16 w-16 text-primary/30 mx-auto mb-4" />
+          /* Empty state */
+          <div className="flex-1 flex items-center justify-center p-8">
+            <div className="text-center animate-fade-in max-w-sm">
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-5">
+                <LayoutDashboard className="h-8 w-8 text-primary/60" />
+              </div>
               <h2 className="font-heading text-xl text-foreground mb-2">Selecione um cliente</h2>
-              <p className="text-muted-foreground font-body text-sm">Escolha um cliente na lista ao lado para gerenciar</p>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                Escolha um cliente na lista lateral para gerenciar suas configurações, leads e conversas do SDR.
+              </p>
             </div>
           </div>
         )}
